@@ -56,10 +56,14 @@ test("fictional merchant tutorial teaches reproducible product field review and 
  assert.ok(audit.includes("TEE-BLK-L"));
  assert.ok(audit.includes("fictional"));
  assert.ok(audit.includes("한국어"));
- assert.ok(audit.includes("six downloadable review files"));
+ assert.ok(audit.includes("seven downloadable review files"));
  assert.ok(audit.includes("supplier-matches-NOT-SHOPIFY-IMPORT.csv"));
  assert.ok(audit.includes("MUST NOT"));
  assert.ok(audit.includes("Shopify import CSV"));
+ assert.ok(audit.includes("supplier unit cost"));
+ assert.ok(audit.includes("same currency"));
+ assert.ok(audit.includes("NOT real profit"));
+ assert.ok(audit.includes("supplier-margin-REVIEW-ONLY.csv"));
  for(const name of ["shopify-current-products.csv","supplier-price-update.csv","shopify-proposed-products.csv"]){
     assert.ok(audit.includes("fixtures/"+name));
  }

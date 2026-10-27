@@ -26,6 +26,7 @@ function page({source=INPUTS}={}){
  const revoked=[];
  for(const name of ["sku-audit-form","run","status","results","summary","reports","clear",
                     "review-preview","changed-fields-preview","import-risk-summary","import-risk-examples",
+                    "margin-panel","margin-overview","margin-rows",
                     "current","supplier","proposed"]){
    elements[name]={
       id:name,textContent:"",disabled:false,hidden:false,files:[],
@@ -96,12 +97,12 @@ test("exact standalone browser audit is byte-reproducible from four original sou
  }
 });
 
-test("real fictional three-CSV workflow yields EXACT six pure CLI reports without exposing merchant files",async()=>{
+test("real fictional three-CSV workflow yields EXACT seven pure CLI reports without exposing merchant files",async()=>{
  const ui=page();
  await ui.submit();
  assert.equal(ui.elements.results.hidden,false);
- assert.equal(ui.objectURLs.length,6);
- assert.equal(ui.elements.reports.children.length,6);
+ assert.equal(ui.objectURLs.length,7);
+ assert.equal(ui.elements.reports.children.length,7);
  assert.equal(ui.elements.run.disabled,false);
  assert.match(ui.elements.summary.textContent,/Supplier matches: 3/);
  assert.match(ui.elements.summary.textContent,/Changed records: 2/);
@@ -112,7 +113,13 @@ test("real fictional three-CSV workflow yields EXACT six pure CLI reports withou
  assert.match(ui.elements["changed-fields-preview"].children[1].textContent,/CAP-WOOL.*Inventory quantity.*7.*6/);
  assert.match(ui.elements["import-risk-summary"].textContent,/0 included cells changing to blank/);
  assert.equal(ui.elements["import-risk-examples"].children.length,0);
- assert.match(ui.elements.status.textContent,/Six local reports prepared/);
+ assert.equal(ui.elements["margin-panel"].hidden,false);
+ assert.equal(ui.elements["margin-rows"].children.length,3);
+ assert.match(ui.elements["margin-overview"].textContent,/3 calculated/);
+ assert.match(ui.elements["margin-overview"].textContent,/0 below supplier cost/);
+ assert.match(ui.elements["margin-overview"].textContent,/SAME-CURRENCY ASSUMED/);
+ assert.match(ui.elements["margin-rows"].children[0].textContent,/TEE-BLK-M.*31.00.*61.29%/);
+ assert.match(ui.elements.status.textContent,/Seven local reports prepared/);
  const {files}=makeReports(INPUTS);
  for(let i=0;i<ui.objectURLs.length;i++){
    const [name,expected]=[...files][i];
@@ -122,7 +129,7 @@ test("real fictional three-CSV workflow yields EXACT six pure CLI reports withou
    assert.equal((await ui.objectURLs[i].blob.text()).replace(/^\uFEFF/,""),
                 expected.replace(/^\uFEFF/,""));
  }
- const summary=JSON.parse(await ui.objectURLs[5].blob.text());
+ const summary=JSON.parse(await ui.objectURLs[6].blob.text());
  assert.equal(summary.outputCannotBeImportedDirectlyIntoShopify,true);
  assert.equal(summary.advertisingLoaded,false);
  assert.equal(summary.dataUploaded,false);
@@ -157,15 +164,17 @@ test("requires all three files and refuses oversized input before reading any da
  assert.match(tooBig.elements.status.textContent,/2.2 MB/);
 });
 
-test("clearing and leaving releases all six private report blob URLs",async()=>{
+test("clearing and leaving releases all seven private report blob URLs",async()=>{
  const ui=page();
  await ui.submit();
- assert.equal(ui.objectURLs.length,6);
+ assert.equal(ui.objectURLs.length,7);
  ui.clear();
- assert.equal(ui.revoked.length,6);
+ assert.equal(ui.revoked.length,7);
  assert.equal(ui.elements.reports.children.length,0);
  assert.equal(ui.elements.results.hidden,true);
  assert.equal(ui.elements["review-preview"].hidden,true);
+ assert.equal(ui.elements["margin-panel"].hidden,true);
+ assert.equal(ui.elements["margin-rows"].children.length,0);
  assert.equal(ui.elements["changed-fields-preview"].children.length,0);
  assert.equal(ui.elements["import-risk-examples"].children.length,0);
  for(const key of ["current","supplier","proposed"]){
@@ -175,12 +184,12 @@ test("clearing and leaving releases all six private report blob URLs",async()=>{
  const next=page();
  await next.submit();
  next.events["window:beforeunload"]();
- assert.equal(next.revoked.length,6);
+ assert.equal(next.revoked.length,7);
 });
 
 test("standalone HTML presents safety limits, Korean instructions, honest free referral links",()=>{
  for(const text of [
-   "한국어","3개","Six","NEVER be imported","Cost/Supplier",
+   "한국어","3개","Seven","NEVER be imported","Cost/Supplier",
    "under 2.2 MB","Shopify updates depend on URL handles",
    "https://tools.trendbridged.com/tools/join-csv-by-key/",
    "https://tools.trendbridged.com/tools/compare-csv-files/",
@@ -255,4 +264,16 @@ test("blanking an option value warns for BOTH overwrite and destructive variant 
    "POSSIBLE_BLANK_OVERWRITE","VARIANT_OPTION_VALUE_CHANGE"
  ]);
  assert.equal(summary.manualReviewRequired,true);
+});
+
+test("margin screen never treats price-cost arithmetic as verified profit",async()=>{
+ const ui=page();
+ await ui.submit();
+ assert.equal(ui.elements["margin-panel"].hidden,false);
+ const message=ui.elements["margin-overview"].textContent;
+ assert.match(message,/NOT real profit/);
+ assert.match(message,/taxes\/shipping\/fees\/discounts NOT included/);
+ assert.equal(ui.elements["margin-rows"].children.length,3);
+ assert.ok(ui.elements.reports.children.some(li=>
+   li.children[0]?.download==="supplier-margin-REVIEW-ONLY.csv"));
 });

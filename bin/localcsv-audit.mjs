@@ -11,7 +11,8 @@ import path from "node:path";
 import {readFile, mkdir, writeFile, rm} from "node:fs/promises";
 import {fileURLToPath} from "node:url";
 
-import {joinCSVByKey} from "../lib/csv-lookup-core.mjs";
+import {joinCSVByKey, readJoinCSV} from "../lib/csv-lookup-core.mjs";
+import {stringifyCSV} from "../lib/csv-core.mjs";
 import {compareCSVExports, readCSVForComparison} from "../lib/csv-diff-core.mjs";
 import {inspectShopifyProductCSV} from "../lib/shopify-preflight-core.mjs";
 
@@ -33,7 +34,8 @@ const HELP = [
   "",
   "Outputs (local files ONLY): summary.json, supplier-matches-NOT-SHOPIFY-",
   "IMPORT.csv, unmatched-skus.csv, proposed-changes.csv,",
-  "preflight-current.csv and preflight-proposed.csv",
+  "supplier-margin-REVIEW-ONLY.csv, preflight-current.csv,",
+  "and preflight-proposed.csv",
   "",
   "Runs without dependencies, network, Shopify login, analytics or ads.",
   "Never import joined supplier audit directly into Shopify.",
@@ -133,13 +135,95 @@ export function makeReports({current, supplier, proposed}) {
       }
     }
   }
+  // Supplier-cost price margin REVIEW. This arithmetic does NOT predict
+  // profit: discounts, tax, card fees, fulfillment, ad costs and currency
+  // conversion are unknown. NEVER assume vendor CSV uses store currency.
+  // Read valid input tables only; the join and diff above already validate
+  // unique supplier SKU and unique proposed/current Shopify SKU keys.
+  const vendorData=readJoinCSV(supplier,"Supplier cost CSV");
+  const costNames=vendorData.headers.filter(name =>
+    ["cost","cost per item","unit cost","wholesale cost"].includes(name.toLowerCase()));
+  const priceNames=newData.headers.filter(name =>
+    ["Price","Variant Price"].includes(name));
+  const oldPriceNames=oldData.headers.filter(name =>
+    ["Price","Variant Price"].includes(name));
+  const costField=costNames.length===1?costNames[0]:null;
+  const priceField=priceNames.length===1?priceNames[0]:null;
+  const priorPriceField=oldPriceNames.length===1?oldPriceNames[0]:null;
+  const vendorSkuIndex=vendorData.headers.indexOf("SKU");
+  const vendorBySKU=new Map(vendorData.records.map(row => [
+    String(row.values[vendorSkuIndex]??"").trim(),
+    Object.fromEntries(vendorData.headers.map((field,index)=>[field,row.values[index]]))
+  ]));
+  // Integer 1/10000 currency units prevent unsafe binary float parsing,
+  // approximate lookups and mistaken currency-symbol conversion.
+  function moneyUnits(raw) {
+    const value=String(raw??"").trim();
+    if(!/^(?:0|[1-9][0-9]{0,8})(?:[.][0-9]{1,4})?$/.test(value))return null;
+    const parts=value.split(".");
+    const units=Number(parts[0])*10000+
+      Number((parts[1]??"").padEnd(4,"0"));
+    return Number.isSafeInteger(units)?units:null;
+  }
+  const margin={
+    inspectedProposedSKU:newData.records.length,
+    validComparisons:0, belowSupplierCost:0,
+    missingSupplier:0, unavailableCost:0, invalidCost:0,
+    unavailableProposedPrice:0, invalidProposedPrice:0,
+    currencyVerified:false, trueProfitCalculated:false,
+    costColumn:costField, priceColumn:priceField,
+    limitations:"Arithmetic only. Confirm supplier cost and product price are in the SAME currency. It excludes taxes, refunds, discounts, shipping, card fees, labor and advertising. This is NOT actual or projected profit.",
+    firstEightRows:[]
+  };
+  const marginReport=[[
+    "SKU","supplier_cost","current_shopify_price","proposed_shopify_price",
+    "price_minus_supplier_cost_before_fees","price_cost_margin_percent",
+    "review_status"
+  ]];
+  for(const row of newData.records){
+    const sku=String(row.fields.SKU).trim();
+    const vendor=vendorBySKU.get(sku);
+    const older=oldBySKU.get(sku);
+    const oldPrice=priorPriceField&&older?String(older[priorPriceField]??""):"";
+    const costRaw=vendor&&costField?String(vendor[costField]??""):"";
+    const proposedRaw=priceField?String(row.fields[priceField]??""):"";
+    let status="MARGIN_REVIEW_ONLY";
+    let marginText="";
+    let differenceText="";
+    if(!vendor){status="SUPPLIER_SKU_UNMATCHED";margin.missingSupplier++;}
+    else if(!costField){
+      status=costNames.length?"AMBIGUOUS_COST_COLUMNS":"COST_COLUMN_NOT_FOUND";
+      margin.unavailableCost++;
+    }else if(!priceField){
+      status=priceNames.length?"AMBIGUOUS_PRICE_COLUMNS":"PROPOSED_PRICE_COLUMN_NOT_FOUND";
+      margin.unavailableProposedPrice++;
+    }else{
+      const cost=moneyUnits(costRaw);
+      const price=moneyUnits(proposedRaw);
+      if(cost===null){status="INVALID_OR_MISSING_COST";margin.invalidCost++;}
+      else if(price===null||price===0){
+        status="INVALID_OR_ZERO_PROPOSED_PRICE";margin.invalidProposedPrice++;
+      }else{
+        const delta=price-cost;
+        differenceText=(delta/10000).toFixed(4);
+        marginText=(delta*100/price).toFixed(2);
+        margin.validComparisons++;
+        if(delta<0){status="BELOW_SUPPLIER_COST";margin.belowSupplierCost++;}
+      }
+    }
+    const review=[sku,costRaw,oldPrice,proposedRaw,differenceText,marginText,status];
+    marginReport.push(review);
+    if(margin.firstEightRows.length<8)margin.firstEightRows.push(review);
+  }
   const manualReviewRequired = Boolean(
     before.metrics.errors || after.metrics.errors ||
     before.metrics.warnings || after.metrics.warnings ||
     joined.metrics.unmatched || joined.metrics.blankPrimaryKeys ||
     joined.metrics.duplicatesInPrimary ||
     diff.metrics.added || diff.metrics.removed ||
-    diff.metrics.changed
+    diff.metrics.changed || margin.belowSupplierCost ||
+    margin.missingSupplier || margin.invalidCost || margin.invalidProposedPrice ||
+    margin.unavailableCost || margin.unavailableProposedPrice
   );
   const summary = {
     tool: "LocalCSV Lab — offline supplier SKU audit",
@@ -150,6 +234,7 @@ export function makeReports({current, supplier, proposed}) {
     supplierJoin: joined.metrics,
     changedProductRecords: diff.metrics,
     possibleImportRisks: importRisk,
+    supplierCostMarginReview: margin,
     existingShopifyPreflight: before.metrics,
     proposedShopifyPreflight: after.metrics,
     manualReviewRequired,
@@ -160,6 +245,8 @@ export function makeReports({current, supplier, proposed}) {
       "The supplier-joined analysis has extra Cost/Supplier fields; NEVER import it directly into Shopify.",
       "Keep the original export; review duplicate/blank SKU exceptions and changed variants.",
       "Supplier prices are confidential: keep generated reports local.",
+      "Margin checks are SIMPLE price-minus-supplier-cost arithmetic, never real profit or an instruction to price products.",
+      "Verify same-currency input, tax, discounts, refunds, payment processing, shipping and advertising costs separately.",
       "Consult Shopify's official documentation and test one or two products first.",
     ],
     relatedFreeTools: {
@@ -174,10 +261,12 @@ export function makeReports({current, supplier, proposed}) {
     // diff engine; never parse arbitrarily large downloaded reports.
     changePreview: diff.previewRows.slice(1),
     comparisonReportLines: diff.reportLines,
+    supplierMarginPreview: margin.firstEightRows,
     files: new Map([
       ["supplier-matches-NOT-SHOPIFY-IMPORT.csv", joined.csv],
       ["unmatched-skus.csv", joined.unmatchedCSV],
       ["proposed-changes.csv", diff.csv],
+      ["supplier-margin-REVIEW-ONLY.csv", "﻿"+stringifyCSV(marginReport,",",true)],
       ["preflight-current.csv", before.csv],
       ["preflight-proposed.csv", after.csv],
       ["summary.json", JSON.stringify(summary, null, 2) + "\n"],

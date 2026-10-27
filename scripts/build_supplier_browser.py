@@ -41,6 +41,9 @@ APP = r"""
   const changes=document.getElementById("changed-fields-preview");
   const riskSummary=document.getElementById("import-risk-summary");
   const riskList=document.getElementById("import-risk-examples");
+  const marginPanel=document.getElementById("margin-panel");
+  const marginOverview=document.getElementById("margin-overview");
+  const marginRows=document.getElementById("margin-rows");
   const clear=document.getElementById("clear");
   let urls=[];
 
@@ -50,6 +53,9 @@ APP = r"""
     reports.replaceChildren();
     changes.replaceChildren();
     riskList.replaceChildren();
+    marginRows.replaceChildren();
+    marginOverview.textContent="";
+    marginPanel.hidden=true;
     riskSummary.textContent="";
     preview.hidden=true;
     summary.textContent="";
@@ -112,6 +118,28 @@ APP = r"""
         riskList.append(item);
       }
       preview.hidden=false;
+      // Advisory arithmetic ONLY: never invent same-currency assurance or
+      // profit after shipping, tax, discounts, labor, fees or advertising.
+      const pricing=m.supplierCostMarginReview;
+      marginOverview.textContent=
+        "Price-minus-supplier-cost review: "+pricing.validComparisons+
+        " calculated; "+pricing.belowSupplierCost+" below supplier cost; "+
+        pricing.missingSupplier+" unmatched supplier SKUs; "+
+        (pricing.invalidCost+pricing.invalidProposedPrice+
+         pricing.unavailableCost+pricing.unavailableProposedPrice)+
+        " missing/invalid price or cost rows. SAME-CURRENCY ASSUMED, "+
+        "taxes/shipping/fees/discounts NOT included. NOT real profit.";
+      for(const row of result.supplierMarginPreview){
+        const item=document.createElement("li");
+        item.textContent="SKU "+String(row[0])+
+          " | cost "+String(row[1])+
+          " | proposed price "+String(row[3])+
+          " | difference "+String(row[4])+
+          " | price-cost margin "+String(row[5])+"%"+
+          " | "+String(row[6]);
+        marginRows.append(item);
+      }
+      marginPanel.hidden=false;
       for(const [name,data] of result.files){
         const link=document.createElement("a");
         const item=document.createElement("li");
@@ -125,7 +153,7 @@ APP = r"""
         reports.append(item);
       }
       results.hidden=false;
-      status.textContent="Six local reports prepared. Never import the joined supplier CSV into Shopify.";
+      status.textContent="Seven local reports prepared. Never import ANY audit report into Shopify.";
     }catch(error){
       resetResults();
       status.textContent="Audit stopped safely: "+String(error&&error.message?error.message:error);
@@ -181,7 +209,7 @@ for comparison. Ambiguous data stops rather than silently guessing.</p>
 <button id="clear" type="button">Clear / 초기화</button></div></form>
 <p id="status" role="status" aria-live="polite">Choose three CSVs to begin. No data leaves your browser.</p>
 <section id="results" class="panel" hidden>
-<h2>Review and download six reports / 보고서 6개</h2>
+<h2>Review and download seven reports / 보고서 7개</h2>
 <p id="summary"></p>
 <section id="review-preview" aria-labelledby="review-preview-title" hidden>
 <h3 id="review-preview-title">Change preview and potential import risks / 변경 내역 및 위험 신호</h3>
@@ -195,9 +223,21 @@ A nonrequired field included as blank in an import may erase an existing
 value. A changed option value may recreate variant IDs. Back up the export,
 check official Shopify rules and test one or two products first.</p>
 </section>
+<section id="margin-panel" aria-labelledby="margin-title" hidden>
+<h3 id="margin-title">Supplier cost vs. Shopify price / 공급업체 원가·판매가 비교</h3>
+<p id="margin-overview" role="status"></p>
+<p class="note">This is not actual profit. You MUST independently confirm the supplier
+cost and Shopify price use the same currency. Excludes taxes, shipping,
+returns, discounts, labor, payment fees, advertising and all other costs.
+Negative values only signal price below supplied cost; they do not prove a loss.</p>
+<ol id="margin-rows"></ol>
+<p>Shows the first eight proposed SKUs only. Download
+supplier-margin-REVIEW-ONLY.csv for all rows; do not import it to Shopify.</p>
+</section>
 <ul id="reports"></ul>
-<p><strong>Do not import</strong> supplier-matches-NOT-SHOPIFY-IMPORT.csv;
-the six files are private review reports, not merchant upload instructions.</p></section>
+<p><strong>Do not import</strong> supplier-matches-NOT-SHOPIFY-IMPORT.csv
+or supplier-margin-REVIEW-ONLY.csv; all seven local reports are for
+private review, not merchant upload instructions.</p></section>
 <section class="panel">
 <h2>Limits, security and official guidance</h2>
 <p>For your privacy this downloadable single HTML includes only the original open-source
@@ -234,8 +274,9 @@ def generate() -> str:
         "const CsvLookup="+lookup+"(CsvCore);",
         "const CsvDiff="+diff+"(CsvCore);",
         "const Shopify="+shopify+"(CsvCore);",
-        "const {joinCSVByKey}=CsvLookup;",
-        "const {compareCSVExports,readCSVForComparison}=CsvDiff;",
+         "const {joinCSVByKey,readJoinCSV}=CsvLookup;",
+         "const {compareCSVExports,readCSVForComparison}=CsvDiff;",
+        "const {stringifyCSV}=CsvCore;",
         "const {inspectShopifyProductCSV}=Shopify;",
         logic,
         APP,

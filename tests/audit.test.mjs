@@ -64,7 +64,20 @@ test("real LocalCSV core modules produce exactly expected merchant data results"
   assert.equal(summary.possibleImportRisks.variantOptionValueChanges, 0);
   assert.equal(summary.possibleImportRisks.productHandleChanges, 0);
   assert.equal(summary.outputCannotBeImportedDirectlyIntoShopify, true);
-  assert.equal(files.size, 6);
+  assert.equal(files.size, 7);
+  assert.equal(summary.supplierCostMarginReview.inspectedProposedSKU,3);
+  assert.equal(summary.supplierCostMarginReview.validComparisons,3);
+  assert.equal(summary.supplierCostMarginReview.belowSupplierCost,0);
+  assert.equal(summary.supplierCostMarginReview.currencyVerified,false);
+  assert.equal(summary.supplierCostMarginReview.trueProfitCalculated,false);
+  assert.match(summary.supplierCostMarginReview.limitations,/SAME currency/i);
+  const margins = parseCSV(files.get("supplier-margin-REVIEW-ONLY.csv").replace(/^\uFEFF/,""));
+  assert.deepEqual(margins.slice(1).map(row=>[row[0],row[4],row[5],row[6]]), [
+    ["TEE-BLK-M","19.0000","61.29","MARGIN_REVIEW_ONLY"],
+    ["TEE-BLK-L","16.5000","56.90","MARGIN_REVIEW_ONLY"],
+    ["CAP-WOOL","9.7500","54.17","MARGIN_REVIEW_ONLY"]
+  ]);
+
   const joined = parseCSV(files.get("supplier-matches-NOT-SHOPIFY-IMPORT.csv").replace(/^\uFEFF/, ""));
   assert.deepEqual(joined.slice(1).map(row => row.at(-2)), ["12.00","12.50","8.25"]);
   assert.equal(joined[0].at(-1), "Supplier");
@@ -75,13 +88,13 @@ test("real LocalCSV core modules produce exactly expected merchant data results"
   ]);
 });
 
-test("three input files produce six private local reports without altering inputs", async () => {
+test("three input files produce seven private local reports without altering inputs", async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "localcsv-github-cli-"));
   try {
     const target = path.join(dir, "local-reports");
     const before = await Promise.all(Object.values(inputs).map(p => readFile(p)));
     const run = await audit({...inputs, out: target});
-    assert.equal(run.reportsWritten, 6);
+    assert.equal(run.reportsWritten, 7);
     assert.equal(run.supplierMatches, 3);
     assert.equal(run.unmatchedSKUs, 0);
     assert.equal(run.changedRecords, 2);
@@ -90,7 +103,8 @@ test("three input files produce six private local reports without altering input
     assert.equal(run.publisherRevenueUSD, null);
     assert.deepEqual((await readdir(target)).sort(), [
       "preflight-current.csv","preflight-proposed.csv","proposed-changes.csv",
-      "summary.json","supplier-matches-NOT-SHOPIFY-IMPORT.csv","unmatched-skus.csv",
+      "summary.json","supplier-margin-REVIEW-ONLY.csv",
+      "supplier-matches-NOT-SHOPIFY-IMPORT.csv","unmatched-skus.csv",
     ]);
     for (const name of await readdir(target)) {
       const file = path.join(target, name);
@@ -114,7 +128,7 @@ test("CLI main is executable in a separate process without npm install", async (
       "--out", out,
     ], {cwd:ROOT,encoding:"utf8",timeout:10000});
     assert.equal(result.status,0,result.stderr);
-    assert.equal(JSON.parse(result.stdout).reportsWritten,6);
+    assert.equal(JSON.parse(result.stdout).reportsWritten,7);
     assert.match(result.stderr,/AUDIT ONLY/);
   } finally { await rm(temp,{recursive:true,force:true}); }
 });
@@ -206,4 +220,112 @@ test("no hidden credentials or network/advertising SDKs are bundled in public re
   const cli=await readFile(CLI,"utf8");
   assert.ok(!cli.includes("https.request("));
   assert.ok(!cli.includes("window.open("));
+});
+
+test("supplier costs higher than Shopify proposed prices are visibly flagged, not claimed to be profit",async()=>{
+ const current=await readFile(inputs.current,"utf8");
+ const proposed=await readFile(inputs.proposed,"utf8");
+ const supplier=(await readFile(inputs.supplier,"utf8")).replace("TEE-BLK-M,12.00","TEE-BLK-M,45.00");
+ const {summary,files}=makeReports({current,proposed,supplier});
+ assert.equal(summary.supplierCostMarginReview.validComparisons,3);
+ assert.equal(summary.supplierCostMarginReview.belowSupplierCost,1);
+ assert.equal(summary.manualReviewRequired,true);
+ const rows=parseCSV(files.get("supplier-margin-REVIEW-ONLY.csv").replace(/^\uFEFF/,""));
+ assert.equal(rows[1][4],"\x27-14.0000");
+ assert.equal(rows[1][5],"\x27-45.16");
+ assert.equal(rows[1][6],"BELOW_SUPPLIER_COST");
+});
+
+test("invalid vendor prices or missing supplier keys produce review-only row statuses instead of invented numbers",async()=>{
+ const current=await readFile(inputs.current,"utf8");
+ const proposed=await readFile(inputs.proposed,"utf8");
+ const supplier=(await readFile(inputs.supplier,"utf8"))
+   .replace("12.00,Fictional Textile Supply","not-a-number,Fictional Textile Supply")
+   .replace(/\nCAP-WOOL,8\.25,Fictional Mill\n?/,"\n");
+ const {summary,files}=makeReports({current,proposed,supplier});
+ assert.equal(summary.supplierCostMarginReview.validComparisons,1);
+ assert.equal(summary.supplierCostMarginReview.invalidCost,1);
+ assert.equal(summary.supplierCostMarginReview.missingSupplier,1);
+ const rows=parseCSV(files.get("supplier-margin-REVIEW-ONLY.csv").replace(/^\uFEFF/,""));
+ assert.equal(rows[1][6],"INVALID_OR_MISSING_COST");
+ assert.equal(rows[1][4],"");
+ assert.equal(rows[3][6],"SUPPLIER_SKU_UNMATCHED");
+ assert.equal(rows[3][5],"");
+ assert.equal(summary.manualReviewRequired,true);
+});
+
+test("missing supplier cost column fails closed on pricing arithmetic without losing other diagnostics",async()=>{
+ const current=await readFile(inputs.current,"utf8");
+ const proposed=await readFile(inputs.proposed,"utf8");
+ const supplier=(await readFile(inputs.supplier,"utf8")).replace("SKU,Cost,Supplier","SKU,Internal Note,Supplier");
+ const {summary,files}=makeReports({current,proposed,supplier});
+ const r=summary.supplierCostMarginReview;
+ assert.equal(r.validComparisons,0);
+ assert.equal(r.unavailableCost,3);
+ assert.equal(r.costColumn,null);
+ assert.equal(files.size,7);
+});
+
+test("financial CSV report protects supplier cost formulas from spreadsheet execution",async()=>{
+ const current=await readFile(inputs.current,"utf8");
+ const proposed=await readFile(inputs.proposed,"utf8");
+ const supplier=(await readFile(inputs.supplier,"utf8")).replace("12.00,Fictional Textile Supply","=1+1,Fictional Textile Supply");
+ const {files,summary}=makeReports({current,proposed,supplier});
+ assert.equal(summary.supplierCostMarginReview.invalidCost,1);
+ const rows=parseCSV(files.get("supplier-margin-REVIEW-ONLY.csv").replace(/^\uFEFF/,""));
+ assert.equal(rows[1][1],"'=1+1");
+ assert.equal(rows[1][6],"INVALID_OR_MISSING_COST");
+});
+
+test("legacy Shopify Variant Price and supplier Cost per item headers are recognized without guessing currencies",async()=>{
+ const current=(await readFile(inputs.current,"utf8")).replace(
+   "Price,Inventory tracker","Variant Price,Inventory tracker");
+ const proposed=(await readFile(inputs.proposed,"utf8")).replace(
+   "Price,Inventory tracker","Variant Price,Inventory tracker");
+ const supplier=(await readFile(inputs.supplier,"utf8")).replace(
+   "SKU,Cost,Supplier","SKU,Cost per item,Supplier");
+ const {summary,files}=makeReports({current,supplier,proposed});
+ const cost=summary.supplierCostMarginReview;
+ assert.equal(cost.costColumn,"Cost per item");
+ assert.equal(cost.priceColumn,"Variant Price");
+ assert.equal(cost.validComparisons,3);
+ assert.equal(cost.belowSupplierCost,0);
+ assert.equal(cost.currencyVerified,false);
+ const rows=parseCSV(files.get("supplier-margin-REVIEW-ONLY.csv").replace(/^\uFEFF/,""));
+ assert.equal(rows[1][5],"61.29");
+});
+
+test("zero, negative and symbol-denominated prices never produce false profit arithmetic",async()=>{
+ const current=await readFile(inputs.current,"utf8");
+ const proposed=(await readFile(inputs.proposed,"utf8"))
+   .replace("31.00,shopify,8","0.00,shopify,8")
+   .replace("29.00,shopify,4","$29.00,shopify,4")
+   .replace("18.00,shopify,6","-18.00,shopify,6");
+ const supplier=await readFile(inputs.supplier,"utf8");
+ const {summary,files}=makeReports({current,supplier,proposed});
+ const cost=summary.supplierCostMarginReview;
+ assert.equal(cost.validComparisons,0);
+ assert.equal(cost.invalidProposedPrice,3);
+ assert.equal(cost.trueProfitCalculated,false);
+ const rows=parseCSV(files.get("supplier-margin-REVIEW-ONLY.csv").replace(/^\uFEFF/,""));
+ for(const row of rows.slice(1)){
+   assert.equal(row[4],"");
+   assert.equal(row[5],"");
+   assert.equal(row[6],"INVALID_OR_ZERO_PROPOSED_PRICE");
+ }
+});
+
+test("multiple candidate supplier cost columns produce explicit ambiguity instead of arbitrary selection",async()=>{
+ const current=await readFile(inputs.current,"utf8");
+ const proposed=await readFile(inputs.proposed,"utf8");
+ const supplier=(await readFile(inputs.supplier,"utf8"))
+   .replace("SKU,Cost,Supplier","SKU,Cost,Unit cost,Supplier")
+   .replace("12.00,Fictional","12.00,13.00,Fictional")
+   .replace("12.50,Fictional","12.50,13.50,Fictional")
+   .replace("8.25,Fictional","8.25,9.25,Fictional");
+ const {summary,files}=makeReports({current,supplier,proposed});
+ assert.equal(summary.supplierCostMarginReview.validComparisons,0);
+ assert.equal(summary.supplierCostMarginReview.unavailableCost,3);
+ const rows=parseCSV(files.get("supplier-margin-REVIEW-ONLY.csv").replace(/^\uFEFF/,""));
+ assert.ok(rows.slice(1).every(r=>r[6]==="AMBIGUOUS_COST_COLUMNS"));
 });

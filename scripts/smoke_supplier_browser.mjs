@@ -109,15 +109,15 @@ const target=requestedTarget?.startsWith("https://")?requestedTarget:
  let observed;
  for(let i=0;i<45;i++){
    const payload=await cdp("Runtime.evaluate",{
-      expression:"JSON.stringify({status:document.getElementById('status').textContent,summary:document.getElementById('summary').textContent,shown:!document.getElementById('results').hidden,previewShown:!document.getElementById('review-preview').hidden,previewRows:[...document.querySelectorAll('#changed-fields-preview li')].map(e=>e.textContent),riskText:document.getElementById('import-risk-summary').textContent,reports:[...document.querySelectorAll('#reports a')].map(a=>a.download)})",
+      expression:"JSON.stringify({status:document.getElementById('status').textContent,summary:document.getElementById('summary').textContent,shown:!document.getElementById('results').hidden,previewShown:!document.getElementById('review-preview').hidden,previewRows:[...document.querySelectorAll('#changed-fields-preview li')].map(e=>e.textContent),riskText:document.getElementById('import-risk-summary').textContent,marginText:document.getElementById('margin-overview').textContent,marginRows:[...document.querySelectorAll('#margin-rows li')].map(a=>a.textContent),marginShown:!document.getElementById('margin-panel').hidden,reports:[...document.querySelectorAll('#reports a')].map(a=>a.download)})",
       returnByValue:true
    });
    observed=JSON.parse(payload.result.value);
-   if(observed.reports.length===6)break;
+   if(observed.reports.length===7)break;
    await sleep(100);
  }
  assert.equal(observed.shown,true);
- assert.equal(observed.reports.length,6);
+ assert.equal(observed.reports.length,7);
  assert.match(observed.summary,/Supplier matches: 3/);
  assert.match(observed.summary,/Changed records: 2/);
  assert.match(observed.summary,/Manual review: YES/);
@@ -126,9 +126,15 @@ const target=requestedTarget?.startsWith("https://")?requestedTarget:
  assert.match(observed.previewRows[0],/TEE-BLK-M.*Price.*29.00.*31.00/);
  assert.match(observed.previewRows[1],/CAP-WOOL.*Inventory quantity.*7.*6/);
  assert.match(observed.riskText,/0 included cells changing to blank/);
+ assert.equal(observed.marginShown,true);
+ assert.equal(observed.marginRows.length,3);
+ assert.match(observed.marginRows[0],/TEE-BLK-M.*61.29%/);
+ assert.match(observed.marginText,/3 calculated/);
+ assert.match(observed.marginText,/SAME-CURRENCY ASSUMED/);
+ assert.ok(observed.reports.includes("supplier-margin-REVIEW-ONLY.csv"));
  assert.ok(observed.reports.includes("supplier-matches-NOT-SHOPIFY-IMPORT.csv"));
  assert.equal(requested,beforeAuditRequestCount,"The CSV audit triggered network requests");
- console.log("CHROME_END_TO_END_PASS",JSON.stringify({workflow:runFictionalSample?"one-click fictional sample":"user-selected three CSVs",reports:6,summary:observed.summary,networkRequestsDuringAudit:requested-beforeAuditRequestCount}));
+ console.log("CHROME_END_TO_END_PASS",JSON.stringify({workflow:runFictionalSample?"one-click fictional sample":"user-selected three CSVs",reports:7,summary:observed.summary,networkRequestsDuringAudit:requested-beforeAuditRequestCount}));
 }finally{
  try{socket?.close();}catch{}
  chrome.kill("SIGTERM");

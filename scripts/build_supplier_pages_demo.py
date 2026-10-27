@@ -17,7 +17,7 @@ PUBLIC = "https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-sup
 
 OFFLINE_ROBOTS = '<meta name="robots" content="noindex,nofollow">'
 PUBLIC_META = f'''<meta name="robots" content="index,follow">
-<meta name="description" content="Free Shopify supplier CSV comparison with instant change preview and blank overwrite and variant risk warnings. Six private reports. No upload or signup.">
+<meta name="description" content="Free Shopify supplier CSV comparison with instant change preview and blank overwrite and variant risk warnings. Seven private reports including a supplier cost vs. proposed price review. No upload or signup.">
 <link rel="canonical" href="{PUBLIC}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Shopify Supplier CSV Change Comparison — Free Browser Demo">
@@ -33,7 +33,7 @@ SAMPLE_PANEL = """<section class="panel" aria-labelledby="sample-preview-title">
 <h2 id="sample-preview-title">Try the entire workflow in one click / 예제 한 번에 실행</h2>
 <p>No downloads or file selection required. The example uses only three
 <strong>fictional</strong> CSV files bundled within this page, and runs the exact
-same six-report browser-local checker. No customer data, account or ads.</p>
+same seven-report browser-local checker. No customer data, account or ads.</p>
 <p lang="ko">가상의 CSV 예제 3개를 브라우저 안에서 자동 선택하여
 6종 보고서를 바로 확인할 수 있습니다. 실제 Shopify 데이터를 업로드하지 않습니다.</p>
 <button id="use-demo-inputs" type="button">Run fictional 3-CSV example / 예제 바로 실행</button>
@@ -111,15 +111,21 @@ Download or save each file, select it below, and choose <strong>Audit three CSVs
 <li><strong>CAP-WOOL:</strong> Inventory quantity changes from 7 to 6; the variant remains.</li>
 <li><strong>TEE-BLK-L:</strong> Unchanged. All three supplier SKUs match.</li>
 </ul>
-<p>You should receive <strong>six downloadable review files</strong>, including a field-by-field
+<p>You should receive <strong>seven downloadable review files</strong>, including a field-by-field
 before/after diff, supplier match summary, unmatched exceptions, and two advisory
-product-CSV preflight reports. None is an authorized Shopify import command.
+product-CSV preflight reports. A seventh, strictly local CSV report
+estimates proposed price minus the supplier unit cost. This arithmetic
+assumes both inputs use the same currency and excludes shipping, taxes,
+advertising, returns and payment fees. It is NOT real profit. None of these
+outputs is an authorized Shopify import command.
 The supplier-joined report contains extra supplier-only fields and MUST NOT
 be used as a Shopify import CSV.</p>
 <p lang="ko"><strong>한국어 예제:</strong> 가상의 의류 매장 상품 3개를 공급업체 SKU로 비교합니다.
 티셔츠 M 사이즈 가격 29.00 → 31.00, 모자 재고 7 → 6으로 변경됩니다.
 위 CSV 예시 세 개를 내려받고 아래 파일 입력에서 각각 선택해 보세요.
-6종 보고서는 검토용이며 Shopify에 자동 반영되지 않습니다.</p>
+7종 보고서는 검토용이며 Shopify에 자동 반영되지 않습니다.
+공급업체 원가와 제안 판매가는 동일 통화라고 가정한 단순 차액만 계산합니다.
+배송비·수수료·세금·광고비 등을 뺀 실제 순이익이 아니므로 별도로 확인하세요.</p>
 <p>For a single-file workflow visit the original
 <a href="https://tools.trendbridged.com/tools/shopify-csv-preflight/" rel="noopener noreferrer">free Shopify CSV checker</a>,
 or see its

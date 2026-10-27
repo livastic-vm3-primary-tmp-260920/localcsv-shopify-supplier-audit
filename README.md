@@ -25,9 +25,9 @@ but passing checks does **not** guarantee a safe import.
 
 ## Try the three-file supplier comparison online — open-source demo
 
-**[Open the free three-file supplier SKU comparison](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-audit/)**. Run a real browser-only audit using current Shopify product CSV, a supplier SKU list, and a proposed CSV. It produces six review-only reports and includes three small fictional examples to try first. **New: click `Run fictional 3-CSV example` to generate all six reports instantly without downloading or selecting sample files.** No login, file upload, network calls from the CSV editor, third-party scripts or advertising. It is an educational, noncommercial open-source reference implementation, not an importer. The original ad-opt-in LocalCSV Lab tools remain linked for single-file workflows.
+**[Open the free three-file supplier SKU comparison](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-audit/)**. Run a real browser-only audit using current Shopify product CSV, a supplier SKU list, and a proposed CSV. It produces seven review-only reports and includes three small fictional examples to try first. **New: click `Run fictional 3-CSV example` to generate all seven reports instantly without downloading or selecting sample files.** No login, file upload, network calls from the CSV editor, third-party scripts or advertising. It is an educational, noncommercial open-source reference implementation, not an importer. The original ad-opt-in LocalCSV Lab tools remain linked for single-file workflows.
 
-**한국어:** [Shopify 공급업체 SKU CSV 3개 무료 비교 체험](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-audit/) — 기존 상품·공급업체·변경 예정 CSV를 브라우저 안에서 비교하고 6개 분석 보고서를 내려받습니다. 회원가입·파일 전송·광고 없이 사용하는 오픈소스 학습용 데모이며 Shopify 상품을 직접 수정하지 않습니다.
+**한국어:** [Shopify 공급업체 SKU CSV 3개 무료 비교 체험](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-audit/) — 기존 상품·공급업체·변경 예정 CSV를 브라우저 안에서 비교하고 7개 분석 보고서를 내려받습니다. 회원가입·파일 전송·광고 없이 사용하는 오픈소스 학습용 데모이며 Shopify 상품을 직접 수정하지 않습니다.
 
 ---
 
@@ -43,13 +43,32 @@ The HTML source is retained at [offline/shopify-csv-preflight.html](offline/shop
 
 ---
 
-## Updated: zero-install THREE-CSV supplier comparison (v1.3.0)
+## Updated: zero-install THREE-CSV supplier comparison (v1.4.0)
 
-**[Download the free 3-CSV browser audit HTML](https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/releases/latest/download/shopify-supplier-threeway-audit.html).** Save it, open it in a modern browser (even without an internet connection), and select: **current Shopify export**, **supplier SKU/cost CSV**, and **proposed Shopify product CSV**. It generates six local review reports covering SKU matches, exceptions, field changes and Shopify CSV preflight findings. **NEW: the browser shows the first 12 change rows immediately, counts possible blank-cell overwrites, changed variant option values and product handle changes, and flags any changed records as requiring human review.** These are conservative advisories, not Shopify import guarantees. No Node.js installation, signup, account token, merchant-file upload or advertising. Each input must be under 2.2 MB; ambiguous or blank comparison keys are rejected rather than guessed.
+**[Download the free 3-CSV browser audit HTML](https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/releases/latest/download/shopify-supplier-threeway-audit.html).** Save it, open it in a modern browser (even without an internet connection), and select: **current Shopify export**, **supplier SKU/cost CSV**, and **proposed Shopify product CSV**. It generates seven local review reports covering SKU matches, exceptions, field changes and Shopify CSV preflight findings. **NEW: the browser shows the first 12 change rows immediately, counts possible blank-cell overwrites, changed variant option values and product handle changes, and flags any changed records as requiring human review.** These are conservative advisories, not Shopify import guarantees. No Node.js installation, signup, account token, merchant-file upload or advertising. Each input must be under 2.2 MB; ambiguous or blank comparison keys are rejected rather than guessed.
 
-**This is a dry-run audit only.** It never imports or updates Shopify. In particular, do **not** import `supplier-matches-NOT-SHOPIFY-IMPORT.csv`: it includes private supplier-only columns. Keep the original product export, check handle/variant dependencies, and test a couple of products separately before any real update. The browser HTML reuses the exact four pure engines and six-report generator tested by this repository's CLI.
+**Supplier cost review (new in v1.4.0):** The seventh report,
+supplier-margin-REVIEW-ONLY.csv, compares each proposed Shopify variant Price
+with the vendor's Cost / Cost per item / Unit cost / Wholesale cost column by a
+unique SKU. An on-page preview shows the first eight SKUs; the report covers
+all proposed records. It flags prices below supplier cost, missing supplier
+SKUs, bad numeric amounts and absent/ambiguous price or cost columns rather
+than guessing. **The calculation assumes supplier costs and Shopify prices
+use the same currency. It excludes shipping, taxes, discounts, advertising,
+refunds, payment fees and labor. This is arithmetic, NOT profit, accounting
+advice or a recommended selling price.** The tool never modifies Shopify.
+The browser-local margin review contains sensitive vendor costs: keep it on
+your own device and NEVER import this report to Shopify.
 
-**한국어:** [공급업체 SKU 대조·Shopify 변경사항 검사 HTML 다운로드](https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/releases/latest/download/shopify-supplier-threeway-audit.html). 다운로드 후 HTML 파일을 직접 열고 기존 상품 CSV·공급업체 SKU CSV·변경 예정 상품 CSV를 선택하세요. **SKU 매칭/누락·가격/재고 변경·상품 CSV 오류**를 6개 보고서로 확인할 수 있습니다. 모든 처리는 PC의 브라우저에서 이루어지며 파일 업로드·로그인·설치·광고는 없습니다. 분석용 공급업체 병합 CSV는 Shopify에 가져오면 안 됩니다.
+**한국어:** 신규 7번째 supplier-margin-REVIEW-ONLY.csv 보고서는 제안
+판매가와 공급업체 원가를 SKU별로 대조하여 **공급가보다 낮게 판매하는
+상품** 등을 찾아줍니다. 같은 통화 기준의 단순 차액 계산일 뿐 실제
+이익이 아닙니다(세금·배송비·광고비·수수료 제외). 검토 전용 파일이므로
+Shopify 상품 가져오기에 사용하면 안 됩니다.
+
+**This is a dry-run audit only.** It never imports or updates Shopify. In particular, do **not** import `supplier-matches-NOT-SHOPIFY-IMPORT.csv`: it includes private supplier-only columns. Keep the original product export, check handle/variant dependencies, and test a couple of products separately before any real update. The browser HTML reuses the exact four pure engines and seven-report generator tested by this repository's CLI.
+
+**한국어:** [공급업체 SKU 대조·Shopify 변경사항 검사 HTML 다운로드](https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/releases/latest/download/shopify-supplier-threeway-audit.html). 다운로드 후 HTML 파일을 직접 열고 기존 상품 CSV·공급업체 SKU CSV·변경 예정 상품 CSV를 선택하세요. **SKU 매칭/누락·가격/재고 변경·상품 CSV 오류**를 7개 보고서로 확인할 수 있습니다. 모든 처리는 PC의 브라우저에서 이루어지며 파일 업로드·로그인·설치·광고는 없습니다. 분석용 공급업체 병합 CSV는 Shopify에 가져오면 안 됩니다.
 
 Build reproducibly with `python3 scripts/build_supplier_browser.py`; verify via `--check`, `npm test`, and optional real Chrome smoke test `node scripts/smoke_supplier_browser.mjs`. The original CLI and single-CSV offline inspector remain available and unchanged.
 
