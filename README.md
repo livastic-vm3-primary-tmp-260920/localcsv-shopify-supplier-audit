@@ -6,6 +6,25 @@ No signup, npm dependencies, Shopify permissions, customer-file uploads, externa
 
 **Prefer a browser?** Try the free [SKU CSV Join](https://tools.trendbridged.com/tools/join-csv-by-key/), [Compare CSV Files](https://tools.trendbridged.com/tools/compare-csv-files/) and [Shopify CSV Preflight](https://tools.trendbridged.com/tools/shopify-csv-preflight/) tools. No signup required. The file-processing editors contain no third-party advertising scripts; the informational pages show **optional labeled ads only with affirmative visitor consent**.
 
+## Search discovery for the educational project pages
+
+The two actual public, noncommercial GitHub Pages educational examples are
+listed in the [small canonical sitemap](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/sitemap.xml):
+the standalone one-file Shopify preflight example and the browser-local
+three-CSV supplier audit. It intentionally excludes GitHub source downloads,
+merchant CSV inputs, ad-funded pages on the original domain, and any
+private editor or customer data. The sitemap is reproducible using
+`python3 scripts/build_pages_sitemap.py --check`.
+
+A sitemap only helps search-engine discovery. **It does not establish
+indexation, actual human readers, qualified Adsterra impressions, account
+approval, or earned publisher revenue.** This educational source demo has
+no advertising code or data collection. Search Console for the already-verified
+GitHub Pages host can receive the sitemap without touching the original
+`tools.trendbridged.com` Search Console property.
+
+---
+
 ## Try the open-source Shopify CSV inspector directly
 
 **[Open the free online demo — no signup, no CSV upload, no ads](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/)**.
