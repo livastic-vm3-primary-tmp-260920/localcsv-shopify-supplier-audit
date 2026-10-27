@@ -29,7 +29,12 @@ try{
   await sleep(100);
  }
  if(!port)throw Error("Chrome did not start a local CDP listener");
- const target=process.argv[2]?.startsWith("https://")?process.argv[2]:pathToFileURL(process.argv[2]?path.resolve(process.argv[2]):path.join(ROOT,"offline/shopify-supplier-threeway-audit.html")).href;
+ const argv=process.argv.slice(2);
+const runFictionalSample=argv.includes("--sample");
+const requestedTarget=argv.find(value=>value!=="--sample");
+const target=requestedTarget?.startsWith("https://")?requestedTarget:
+  pathToFileURL(requestedTarget?path.resolve(requestedTarget):
+    path.join(ROOT,"offline/shopify-supplier-threeway-audit.html")).href;
  const created=await fetch("http://127.0.0.1:"+port+"/json/new?"+encodeURIComponent(target),{method:"PUT"});
  if(!created.ok)throw Error("Cannot open local file in isolated Chrome");
  const tab=await created.json();
@@ -79,21 +84,26 @@ try{
  }
  assert.ok(loaded,"Target page did not finish navigating with all inputs");
  const doc=await cdp("DOM.getDocument",{depth:1});
- const inputs={
-   current:"fixtures/shopify-current-products.csv",
-   supplier:"fixtures/supplier-price-update.csv",
-   proposed:"fixtures/shopify-proposed-products.csv",
- };
- for(const [name,relative] of Object.entries(inputs)){
-   const found=await cdp("DOM.querySelector",{nodeId:doc.root.nodeId,selector:"#"+name});
-   assert.ok(found.nodeId,"Missing browser input "+name);
-   await cdp("DOM.setFileInputFiles",{
-     nodeId:found.nodeId,files:[path.join(ROOT,relative)]
-   });
+ if(!runFictionalSample){
+   const inputs={
+     current:"fixtures/shopify-current-products.csv",
+     supplier:"fixtures/supplier-price-update.csv",
+     proposed:"fixtures/shopify-proposed-products.csv",
+   };
+   for(const [name,relative] of Object.entries(inputs)){
+     const found=await cdp("DOM.querySelector",{nodeId:doc.root.nodeId,selector:"#"+name});
+     assert.ok(found.nodeId,"Missing browser input "+name);
+     await cdp("DOM.setFileInputFiles",{
+       nodeId:found.nodeId,files:[path.join(ROOT,relative)]
+     });
+   }
+ }else{
+   const button=await cdp("DOM.querySelector",{nodeId:doc.root.nodeId,selector:"#use-demo-inputs"});
+   assert.ok(button.nodeId,"Missing one-click fictional sample button");
  }
  const beforeAuditRequestCount=requested;
  await cdp("Runtime.evaluate",{
-   expression:"document.getElementById('run').click()",
+   expression:runFictionalSample?"document.getElementById('use-demo-inputs').click()":"document.getElementById('run').click()",
    returnByValue:true
  });
  let observed;
@@ -112,7 +122,7 @@ try{
  assert.match(observed.summary,/Changed records: 2/);
  assert.ok(observed.reports.includes("supplier-matches-NOT-SHOPIFY-IMPORT.csv"));
  assert.equal(requested,beforeAuditRequestCount,"The CSV audit triggered network requests");
- console.log("CHROME_END_TO_END_PASS",JSON.stringify({reports:6,summary:observed.summary,networkRequestsDuringAudit:requested-beforeAuditRequestCount}));
+ console.log("CHROME_END_TO_END_PASS",JSON.stringify({workflow:runFictionalSample?"one-click fictional sample":"user-selected three CSVs",reports:6,summary:observed.summary,networkRequestsDuringAudit:requested-beforeAuditRequestCount}));
 }finally{
  try{socket?.close();}catch{}
  chrome.kill("SIGTERM");

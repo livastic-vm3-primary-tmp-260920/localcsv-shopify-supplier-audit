@@ -25,7 +25,7 @@ but passing checks does **not** guarantee a safe import.
 
 ## Try the three-file supplier comparison online — open-source demo
 
-**[Open the free three-file supplier SKU comparison](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-audit/)**. Run a real browser-only audit using current Shopify product CSV, a supplier SKU list, and a proposed CSV. It produces six review-only reports and includes three small fictional examples to try first. No login, file upload, network calls from the CSV editor, third-party scripts or advertising. It is an educational, noncommercial open-source reference implementation, not an importer. The original ad-opt-in LocalCSV Lab tools remain linked for single-file workflows.
+**[Open the free three-file supplier SKU comparison](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-audit/)**. Run a real browser-only audit using current Shopify product CSV, a supplier SKU list, and a proposed CSV. It produces six review-only reports and includes three small fictional examples to try first. **New: click \`Run fictional 3-CSV example\` to generate all six reports instantly without downloading or selecting sample files.** No login, file upload, network calls from the CSV editor, third-party scripts or advertising. It is an educational, noncommercial open-source reference implementation, not an importer. The original ad-opt-in LocalCSV Lab tools remain linked for single-file workflows.
 
 **한국어:** [Shopify 공급업체 SKU CSV 3개 무료 비교 체험](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-audit/) — 기존 상품·공급업체·변경 예정 CSV를 브라우저 안에서 비교하고 6개 분석 보고서를 내려받습니다. 회원가입·파일 전송·광고 없이 사용하는 오픈소스 학습용 데모이며 Shopify 상품을 직접 수정하지 않습니다.
 

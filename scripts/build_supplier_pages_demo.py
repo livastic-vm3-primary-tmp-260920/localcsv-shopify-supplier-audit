@@ -7,6 +7,7 @@ not the Netlify advertising service. Never reads merchant data.
 """
 from __future__ import annotations
 import hashlib
+import json
 import sys
 
 from build_supplier_browser import ROOT, generate as generate_offline
@@ -27,6 +28,72 @@ NEW_TITLE = "<title>Shopify Supplier CSV Comparison — Free Open-Source Browser
 OLD_BANNER = '<p class="muted">LocalCSV Lab · Downloadable free browser utility · No account, upload, ads or installation</p>'
 NEW_BANNER = '<p class="muted">Open-source educational example · Browser-local · Free · No account · No ads or data upload</p>'
 BEFORE_FORM = '<form id="sku-audit-form" class="panel" novalidate>'
+
+SAMPLE_PANEL = """<section class="panel" aria-labelledby="sample-preview-title">
+<h2 id="sample-preview-title">Try the entire workflow in one click / 예제 한 번에 실행</h2>
+<p>No downloads or file selection required. The example uses only three
+<strong>fictional</strong> CSV files bundled within this page, and runs the exact
+same six-report browser-local checker. No customer data, account or ads.</p>
+<p lang="ko">가상의 CSV 예제 3개를 브라우저 안에서 자동 선택하여
+6종 보고서를 바로 확인할 수 있습니다. 실제 Shopify 데이터를 업로드하지 않습니다.</p>
+<button id="use-demo-inputs" type="button">Run fictional 3-CSV example / 예제 바로 실행</button>
+<p class="muted">If you already selected personal CSV files, clear them before using
+this fictional example. The example NEVER replaces existing selections silently.</p>
+</section>
+"""
+
+SAMPLE_JS = r"""(function(){
+  "use strict";
+  const button=document.getElementById("use-demo-inputs");
+  const form=document.getElementById("sku-audit-form");
+  const status=document.getElementById("status");
+  if(!button||!form||!status) return;
+  const examples=@@EXAMPLES@@;
+  button.addEventListener("click",function(){
+    const fields=["current","supplier","proposed"];
+    const inputs=fields.map(field=>document.getElementById(field));
+    if(inputs.some(input=>!input)){
+      status.textContent="Sample is unavailable: file inputs are missing.";
+      return;
+    }
+    if(inputs.some(input=>input.files.length)){
+      status.textContent="Clear selected files before trying the fictional example. / 예제 사용 전 실제 파일을 초기화하세요.";
+      return;
+    }
+    try{
+      // Only literal, locally bundled fictional CSVs; never makes a request.
+      const staged=fields.map(field=>{
+        const value=examples[field];
+        const transfer=new DataTransfer();
+        transfer.items.add(new File([value.text],value.filename,{type:"text/csv"}));
+        return transfer.files;
+      });
+      inputs.forEach((input,index)=>{input.files=staged[index]});
+      form.requestSubmit();
+    }catch(error){
+      // If browser-specific synthetic File selection fails, do not submit.
+      for(const input of inputs)input.value="";
+      status.textContent="Cannot use the one-click sample in this browser. Download the fictional examples above instead.";
+    }
+  });
+})();"""
+
+def sample_js() -> str:
+    filenames = {
+      "current":"shopify-current-products.csv",
+      "supplier":"supplier-price-update.csv",
+      "proposed":"shopify-proposed-products.csv",
+    }
+    contents={}
+    for key,filename in filenames.items():
+        text=(ROOT/"fixtures"/filename).read_text(encoding="utf8")
+        if not text or len(text)>10000 or "</script" in text.lower():
+            raise ValueError("Unexpected unsafe fictional fixture: "+filename)
+        contents[key]={"filename":filename,"text":text}
+    payload=json.dumps(contents,ensure_ascii=True,separators=(",",":")).replace("<","\\u003c").replace(">","\\u003e")
+    assert SAMPLE_JS.count("@@EXAMPLES@@")==1
+    return SAMPLE_JS.replace("@@EXAMPLES@@",payload)
+
 
 EXPLAIN = '''<section class="panel" aria-labelledby="worked-example">
 <h2 id="worked-example">Worked example: compare supplier costs and product changes</h2>
@@ -86,9 +153,16 @@ def build() -> str:
     content = content.replace(OFFLINE_ROBOTS,PUBLIC_META,1)
     content = content.replace(OLD_TITLE,NEW_TITLE,1)
     content = content.replace(OLD_BANNER,NEW_BANNER,1)
-    content = content.replace(BEFORE_FORM,EXPLAIN+BEFORE_FORM,1)
+    content = content.replace(BEFORE_FORM,SAMPLE_PANEL+EXPLAIN+BEFORE_FORM,1)
+    closing="</body></html>"
+    if content.count(closing)!=1:
+        raise ValueError("Unexpected standalone HTML close")
+    extra=sample_js()
+    if "</script" in extra.lower():
+        raise ValueError("Embedded sample JavaScript has an HTML closing tag")
+    content=content.replace(closing,"<script>"+extra+"</script>"+closing,1)
     content = content.replace(OLD_END,NEW_END,1)
-    assert content.count('<script>') == content.count('</script>') == 1
+    assert content.count('<script>') == content.count('</script>') == 2
     assert 'connect-src '+ "'none'" in content
     assert '<script src=' not in content
     assert OFFLINE_ROBOTS not in content

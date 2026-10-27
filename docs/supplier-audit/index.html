@@ -49,6 +49,17 @@ Supplier-joined reports include extra Cost/Supplier columns and
 <strong>must NEVER be imported into Shopify</strong>.
 Keep confidential supplier costs and customer data private.
 Test one or two products using Shopify's official process first.</div>
+<section class="panel" aria-labelledby="sample-preview-title">
+<h2 id="sample-preview-title">Try the entire workflow in one click / 예제 한 번에 실행</h2>
+<p>No downloads or file selection required. The example uses only three
+<strong>fictional</strong> CSV files bundled within this page, and runs the exact
+same six-report browser-local checker. No customer data, account or ads.</p>
+<p lang="ko">가상의 CSV 예제 3개를 브라우저 안에서 자동 선택하여
+6종 보고서를 바로 확인할 수 있습니다. 실제 Shopify 데이터를 업로드하지 않습니다.</p>
+<button id="use-demo-inputs" type="button">Run fictional 3-CSV example / 예제 바로 실행</button>
+<p class="muted">If you already selected personal CSV files, clear them before using
+this fictional example. The example NEVER replaces existing selections silently.</p>
+</section>
 <section class="panel" aria-labelledby="worked-example">
 <h2 id="worked-example">Worked example: compare supplier costs and product changes</h2>
 <p>A <strong>fictional</strong> clothing store has two T-shirt variants and one cap.
@@ -990,4 +1001,38 @@ function makeReports({current, supplier, proposed}) {
   });
   window.addEventListener("beforeunload",resetResults,{once:true});
 })();
-</script></body></html>
+</script><script>(function(){
+  "use strict";
+  const button=document.getElementById("use-demo-inputs");
+  const form=document.getElementById("sku-audit-form");
+  const status=document.getElementById("status");
+  if(!button||!form||!status) return;
+  const examples={"current":{"filename":"shopify-current-products.csv","text":"URL handle,Title,SKU,Option1 name,Option1 value,Option2 name,Option2 value,Price,Inventory tracker,Inventory quantity\ncotton-tee,Cotton Tee,TEE-BLK-M,Color,Black,Size,M,29.00,shopify,8\ncotton-tee,,TEE-BLK-L,Color,Black,Size,L,29.00,shopify,4\nwool-cap,Wool Cap,CAP-WOOL,Color,Natural,,,18.00,shopify,7\n"},"supplier":{"filename":"supplier-price-update.csv","text":"SKU,Cost,Supplier\nTEE-BLK-M,12.00,Fictional Textile Supply\nTEE-BLK-L,12.50,Fictional Textile Supply\nCAP-WOOL,8.25,Fictional Mill\n"},"proposed":{"filename":"shopify-proposed-products.csv","text":"URL handle,Title,SKU,Option1 name,Option1 value,Option2 name,Option2 value,Price,Inventory tracker,Inventory quantity\ncotton-tee,Cotton Tee,TEE-BLK-M,Color,Black,Size,M,31.00,shopify,8\ncotton-tee,,TEE-BLK-L,Color,Black,Size,L,29.00,shopify,4\nwool-cap,Wool Cap,CAP-WOOL,Color,Natural,,,18.00,shopify,6\n"}};
+  button.addEventListener("click",function(){
+    const fields=["current","supplier","proposed"];
+    const inputs=fields.map(field=>document.getElementById(field));
+    if(inputs.some(input=>!input)){
+      status.textContent="Sample is unavailable: file inputs are missing.";
+      return;
+    }
+    if(inputs.some(input=>input.files.length)){
+      status.textContent="Clear selected files before trying the fictional example. / 예제 사용 전 실제 파일을 초기화하세요.";
+      return;
+    }
+    try{
+      // Only literal, locally bundled fictional CSVs; never makes a request.
+      const staged=fields.map(field=>{
+        const value=examples[field];
+        const transfer=new DataTransfer();
+        transfer.items.add(new File([value.text],value.filename,{type:"text/csv"}));
+        return transfer.files;
+      });
+      inputs.forEach((input,index)=>{input.files=staged[index]});
+      form.requestSubmit();
+    }catch(error){
+      // If browser-specific synthetic File selection fails, do not submit.
+      for(const input of inputs)input.value="";
+      status.textContent="Cannot use the one-click sample in this browser. Download the fictional examples above instead.";
+    }
+  });
+})();</script></body></html>
