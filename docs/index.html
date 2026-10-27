@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="index,follow">
+<meta name="description" content="Open-source free Shopify CSV preflight demo: review product handles, variant options, prices, inventory and image URL syntax entirely in your browser without upload or account.">
+<link rel="canonical" href="https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/">
+<meta property="og:title" content="Open-source Shopify Product CSV Preflight — Browser-Local Demo">
+<meta property="og:description" content="Inspect Shopify-shaped CSV data for errors or warnings for free. All processing is local; no login or upload.">
+<meta property="og:url" content="https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Free Offline Shopify CSV Preflight | LocalCSV Lab</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#12393c;background:#f5faf8;line-height:1.55}
+*{box-sizing:border-box}
+body{margin:0}
+main{max-width:810px;padding:2rem 1.2rem 5rem;margin:auto}
+h1{font-size:clamp(1.7rem,5vw,2.5rem);line-height:1.18}
+h2{margin-top:1.8rem}
+p{max-width:75ch}
+.panel{background:white;border:1px solid #adc7c6;padding:1.2rem;border-radius:12px;margin:1.2rem 0}
+label{display:block;font-weight:700;margin:.9rem 0}
+input,select{display:block;font:inherit;width:100%;padding:.55rem;background:#f5fbfa;border:1px solid #678e8f;border-radius:6px}
+button{font:inherit;padding:.6rem 1rem;border:2px solid #0c6266;border-radius:6px;cursor:pointer}
+button[type=submit]{background:#08686b;color:white}
+button[type=button]{background:white;color:#143638}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #b3631d;outline-offset:2px}
+.actions{display:flex;flex-wrap:wrap;gap:.7rem;margin-top:1.1rem}
+.note{border-left:4px solid #ab5b12;background:#fff8ed;padding:.7rem 1rem}
+.muted{font-size:.94rem;color:#386569}
+a{color:#055c6b}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#edf5f4;padding:1rem}
+footer{border-top:1px solid #b0c8c7;margin-top:2.3rem}
+</style></head>
+<body>
+<main id="main">
+<p class="muted">Open-source educational demonstration · Free · No account · No ads · No data upload</p>
+<h1>Offline Shopify product CSV preflight</h1>
+<p>Open this single HTML file in a modern browser. Pick a Shopify-shaped product CSV
+and review missing handles, titles, variant option dependencies, prices, inventory
+and image URL syntax <strong>before</strong> importing. Your CSV stays on your computer.</p>
+<p>한국어: Shopify 상품 CSV를 업로드하지 않고 브라우저에서 검사할 수 있습니다.
+파일을 선택하고 아래 <b>Inspect locally</b> 버튼을 클릭하세요.</p>
+<div class="note"><strong>Important:</strong> This is advisory CSV inspection, not Shopify's
+official validator. A clean report cannot guarantee a safe import. Product updates
+use URL handles and variant option dependencies. <strong>Keep your original backup</strong>
+and test only one or two products before a live store import.</div>
+<form id="localcsv-form" class="panel" novalidate>
+<h2>Choose local CSV</h2>
+<label for="csv-file">Shopify product CSV (.csv)
+<input type="file" id="csv-file" accept=".csv,text/csv" required></label>
+<label for="mode">Check intent
+<select id="mode">
+<option value="update">Update existing products</option>
+<option value="create">Create new products</option>
+</select></label>
+<div class="actions">
+<button type="submit">Inspect locally</button>
+<button type="button" id="clear">Clear</button></div>
+</form>
+<p id="status" role="status" aria-live="polite">No file chosen. Data never leaves your browser.</p>
+<section id="result" class="panel" hidden><h2>Local preflight result</h2>
+<p id="summary"></p><pre id="findings"></pre>
+<p><a id="download">Download full findings CSV</a></p>
+<p class="muted">Only the first 30 findings are displayed here.
+The download contains all captured findings up to the preflight limit.</p>
+</section>
+<section class="panel" aria-labelledby="open-source-demo-heading">
+<h2 id="open-source-demo-heading">Open-source example, not a merchant service</h2>
+<p>This page hosts the exact self-contained JavaScript CSV preflight example from
+<a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit" rel="noopener noreferrer">its public MIT-licensed source</a>.
+It has no accounts, subscriptions, Shopify integration, telemetry,
+external scripts or advertising. It is a client-side reference tool,
+not an import or a commercial service. Its checks are advisory, and
+they cannot replace Shopify's official import requirements.</p>
+</section>
+<h2>Privacy and import limitations</h2>
+<p>This file includes only the pure local CSV and Shopify diagnostic JavaScript
+engines. No tracking, external scripts, advertisers, analytics, network requests,
+file uploads, merchant API login or subscription. It works with Wi-Fi disconnected.</p>
+<p>Image URL syntax is reviewed but the URLs are not fetched. This tool never
+updates Shopify. Keep the full product export, all relevant variant rows, and
+dependent option columns. Spreadsheet formula protection is defense-in-depth;
+it cannot guarantee safety in all spreadsheet programs.</p>
+<h2>More free web tools</h2>
+<p>Use <a href="https://tools.trendbridged.com/tools/shopify-csv-preflight/" target="_blank" rel="noopener noreferrer">LocalCSV Lab Shopify preflight</a>,
+<a href="https://tools.trendbridged.com/tools/join-csv-by-key/" target="_blank" rel="noopener noreferrer">supplier SKU join</a>, or
+<a href="https://tools.trendbridged.com/tools/compare-csv-files/" target="_blank" rel="noopener noreferrer">two-CSV difference viewer</a>
+online, also free without login. Their separate file editors do not load advertiser
+scripts. Informational landing pages display only opt-in optional advertising.</p>
+<footer><p class="muted">LocalCSV Lab · MIT-licensed offline HTML companion ·
+No Adsterra code or monetization counter in this file.</p></footer>
+</main><script>const CsvCore=(function(){
+'use strict';
+/* LocalCSV Lab: pure browser/Node data tools. No upload, tracking, or ads. */
+const MAX_INPUT_CHARS = 2_000_000;
+
+function guardInput(text) {
+  if (typeof text !== 'string') throw new TypeError('Input must be text.');
+  if (text.length > MAX_INPUT_CHARS) throw new Error('File exceeds the 2-million-character safety limit.');
+}
+function parseCSV(text, delimiter = ',') {
+  guardInput(text);
+  if (!['\t', ',', ';'].includes(delimiter)) throw new Error('Unsupported delimiter.');
+  text = text.replace(/^\uFEFF/, '');
+  if (text.length === 0) return [];
+  const rows = [];
+  let row = [], cell = '', quoted = false, quoteClosed = false;
+  const endCell = () => { row.push(cell); cell = ''; quoteClosed = false; };
+  const endRow = () => { endCell(); rows.push(row); row = []; };
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { cell += '"'; i++; }
+        else { quoted = false; quoteClosed = true; }
+      } else cell += ch;
+      continue;
+    }
+    if (quoteClosed) {
+      if (ch === delimiter) { endCell(); continue; }
+      if (ch === '\r' || ch === '\n') {
+        endRow();
+        if (ch === '\r' && text[i + 1] === '\n') i++;
+        continue;
+      }
+      if (ch === ' ' || ch === '\t') continue;
+      throw new Error('Unexpected character after a closing quote near position ' + (i + 1));
+    }
+    if (ch === '"' && cell === '') { quoted = true; continue; }
+    if (ch === '"') throw new Error('Unexpected quote near position ' + (i + 1));
+    if (ch === delimiter) { endCell(); continue; }
+    if (ch === '\r' || ch === '\n') {
+      endRow();
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      continue;
+    }
+    cell += ch;
+  }
+  if (quoted) throw new Error('Unclosed quoted CSV field.');
+  if (row.length > 0 || cell !== '' || quoteClosed) endRow();
+  return rows;
+}
+function detectDelimiter(text) {
+  guardInput(text);
+  // Count separators in the first unquoted record only.
+  let quoted = false;
+  const counts = { ',': 0, ';': 0, '\t': 0 };
+  for (let i = 0; i < Math.min(text.length, 5000); i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      if (quoted && text[i + 1] === '"') { i++; continue; }
+      quoted = !quoted;
+    } else if (!quoted && (ch === '\r' || ch === '\n')) break;
+    else if (!quoted && Object.hasOwn(counts, ch)) counts[ch]++;
+  }
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+}
+function stringifyCSV(rows, delimiter = ',', protectSpreadsheet = true) {
+  if (!['\t', ',', ';'].includes(delimiter)) throw new Error('Unsupported delimiter.');
+  return rows.map((row, rowIndex) => row.map(value => {
+    let s = String(value ?? '');
+    // Spreadsheet programs can interpret formulas as executable content.
+    if (protectSpreadsheet && /^[\s]*[=+\-@\uFF1D\uFF0B\uFF0D\uFF20]/.test(s)) s = "'" + s;
+    if (s.includes('"') || s.includes('\n') || s.includes('\r') || s.includes(delimiter)) {
+      s = '"' + s.replaceAll('"', '""') + '"';
+    }
+    return s;
+  }).join(delimiter)).join('\r\n');
+}
+function deduplicateCSV(rows, { column = -1, header = true, caseSensitive = false } = {}) {
+  if (!rows.length) return { rows: [], removed: 0, kept: 0 };
+  if (!Number.isInteger(column) || column < -1 ||
+      (column >= 0 && column >= (rows[0]?.length ?? 0))) {
+    throw new Error('Selected CSV duplicate-match column is not present in the first record.');
+  }
+  const start = header ? 1 : 0;
+  const result = header ? [rows[0]] : [];
+  const seen = new Set();
+  let removed = 0;
+  let blankKeyRows = 0;
+  for (let i = start; i < rows.length; i++) {
+    const row = rows[i];
+    if (column >= 0 && String(row[column] ?? '').trim() === '') {
+      // Blank email/SKU/customer-ID values are not unique identifiers.
+      // Never discard unrelated records just because these keys are blank.
+      blankKeyRows++;
+      result.push(row);
+      continue;
+    }
+    const parts = column >= 0 ? [row[column] ?? ''] : row;
+    const key = JSON.stringify(parts.map(v => caseSensitive ? String(v).trim() : String(v).trim().toLocaleLowerCase('en')));
+    if (seen.has(key)) { removed++; continue; }
+    seen.add(key);
+    result.push(row);
+  }
+  return { rows: result, removed, kept: result.length - start, blankKeyRows };
+}
+function cleanCSV(rows, { trim = true, removeBlank = true, collapseSpaces = false } = {}) {
+  let removed = 0, changed = 0;
+  const result = [];
+  for (const row of rows) {
+    const mapped = row.map(value => {
+      let out = String(value);
+      if (trim) out = out.trim();
+      if (collapseSpaces) out = out.replace(/[ \t]+/g, ' ');
+      if (out !== value) changed++;
+      return out;
+    });
+    if (removeBlank && mapped.every(v => v === '')) { removed++; continue; }
+    result.push(mapped);
+  }
+  return { rows: result, removed, changed };
+}
+function csvToJSON(rows, { header = true } = {}) {
+  if (!rows.length) return [];
+  const colCount = Math.max(...rows.map(r => r.length));
+  let keys = [];
+  if (header) {
+    const counts = new Map();
+    for (let i = 0; i < colCount; i++) {
+      const raw = String(rows[0][i] ?? '').trim() || 'column_' + (i + 1);
+      const number = (counts.get(raw) ?? 0) + 1;
+      counts.set(raw, number);
+      keys.push(number === 1 ? raw : raw + '_' + number);
+    }
+    // Resolve edge cases where a renamed duplicate conflicts with a real column.
+    const used = new Set();
+    keys = keys.map((k) => {
+      let candidate = k, suffix = 2;
+      while (used.has(candidate)) candidate = k + '_' + suffix++;
+      used.add(candidate);
+      return candidate;
+    });
+  } else keys = Array.from({ length: colCount }, (_, i) => 'column_' + (i + 1));
+  return rows.slice(header ? 1 : 0).map(row => {
+    const obj = Object.create(null);
+    keys.forEach((key, i) => { obj[key] = row[i] ?? ''; });
+    return obj;
+  });
+}
+function formatJSON(input, compact = false) {
+  guardInput(input);
+  const parsed = JSON.parse(input);
+  return JSON.stringify(parsed, null, compact ? 0 : 2);
+}
+
+/* Convert a flat array of objects into CSV. Preserves column ordering by the
+   first appearance of each field and converts nested data to JSON strings.
+   Protects both headers and data values against spreadsheet formula execution. */
+function jsonToCSV(text, { delimiter = ',', protectSpreadsheet = true } = {}) {
+  guardInput(text);
+  const records = JSON.parse(text);
+  if (!Array.isArray(records)) throw new Error('JSON must be an array of objects.');
+  if (!records.length) throw new Error('The JSON array contains no records to convert.');
+  if (records.length > 10000) throw new Error('Maximum 10,000 records per conversion.');
+  const keys = [];
+  const known = new Set();
+  for (const [rowIndex, record] of records.entries()) {
+    if (!record || Array.isArray(record) || typeof record !== 'object') {
+      throw new Error('Every array item must be a JSON object. Invalid record at position ' + (rowIndex + 1) + '.');
+    }
+    for (const key of Object.keys(record)) {
+      if (!known.has(key)) {
+        known.add(key);
+        keys.push(key);
+        if (keys.length > 200) throw new Error('Maximum 200 unique fields per conversion.');
+      }
+    }
+  }
+  if (!keys.length) throw new Error('All records are empty objects with no field names.');
+  const safeHeaders = keys.map(key => protectSpreadsheet && /^[\s]*[=+\-@]/.test(key) ? "'" + key : key);
+  const rows = [safeHeaders];
+  for (const record of records) {
+    rows.push(keys.map(key => {
+      const val = Object.hasOwn(record, key) ? record[key] : '';
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'object') return JSON.stringify(val);
+      return String(val);
+    }));
+  }
+  return {
+    text: stringifyCSV(rows, delimiter, protectSpreadsheet),
+    rows,
+    recordCount: records.length,
+    columnCount: keys.length
+  };
+}
+
+return {MAX_INPUT_CHARS,parseCSV,detectDelimiter,stringifyCSV,deduplicateCSV,cleanCSV,csvToJSON,formatJSON,jsonToCSV};
+})();
+const Shopify=(function(CsvCore){
+'use strict';
+const {parseCSV,stringifyCSV,MAX_INPUT_CHARS}=CsvCore;
+/* LocalCSV Lab — pure Shopify product CSV preflight diagnostics.
+   Reads text only. Does not send data or perform a Shopify import. */
+
+const MAX_ROWS=20000, MAX_COLUMNS=200, MAX_FINDINGS=3000;
+const HEADER=['severity','csv_row','handle','sku','field','problem','suggested_review'];
+const FIELD_ALIASES={
+ handle:['URL handle','Handle'],
+ title:['Title'],
+ sku:['SKU','Variant SKU'],
+ price:['Price','Variant Price'],
+ compare:['Compare-at price','Variant Compare-at Price'],
+ tracker:['Inventory tracker','Variant Inventory Tracker'],
+ quantity:['Inventory quantity','Variant Inventory Qty'],
+ image:['Product image URL','Image Src'],
+ position:['Image position','Image Position'],
+ opt1n:['Option1 name','Option1 Name'],
+ opt1v:['Option1 value','Option1 Value'],
+ opt2n:['Option2 name','Option2 Name'],
+ opt2v:['Option2 value','Option2 Value'],
+ opt3n:['Option3 name','Option3 Name'],
+ opt3v:['Option3 value','Option3 Value']
+};
+
+function normalize(name) {return name.trim().toLowerCase();}
+function currency(text) {
+  const value=String(text??'').trim();
+  if(!value)return null;
+  if(!/^\d+(?:\.\d+)?$/.test(value))return NaN;
+  return Number(value);
+}
+function resolveHeaders(headers) {
+  const index=new Map();
+  for(const [i,header] of headers.entries()) {
+    const normalized=normalize(header);
+    if(!normalized)throw new Error('Every CSV column header must be named.');
+    if(index.has(normalized))throw new Error('Repeated header: '+header+' (column '+(i+1)+'). Rename it first.');
+    index.set(normalized,i);
+  }
+  const field={};
+  for(const [role,names] of Object.entries(FIELD_ALIASES)) {
+    const matched=[...new Set(names.map(name=>normalize(name)).filter(name=>index.has(name)))];
+    if(matched.length>1)throw new Error('Conflicting old and new Shopify columns for '+role+'. Keep one version.');
+    field[role]=matched.length ? index.get(matched[0]) : -1;
+  }
+  return field;
+}
+function inspectShopifyProductCSV(csvText,{mode='update'}={}) {
+  if(mode!=='create'&&mode!=='update')throw new Error('Choose create or update mode.');
+  if(typeof csvText!=='string'||!csvText.trim())throw new Error('Paste or load the product CSV first.');
+  if(csvText.length>MAX_INPUT_CHARS)throw new Error('CSV exceeds the 2 million character limit.');
+  // Shopify documents comma separated product imports. Do not auto-detect semicolon here.
+  const rows=parseCSV(csvText,',');
+  if(rows.length<2)throw new Error('CSV must contain a header row and at least one data row.');
+  const headers=rows[0].map(x=>x.trim().replace(/^\uFEFF/,''));
+  if(headers.length>MAX_COLUMNS)throw new Error('More than 200 columns; split the file before validating.');
+  const field=resolveHeaders(headers);
+  if(field.title===-1)throw new Error('Required product column missing: Title.');
+  if(mode==='update'&&field.handle===-1)throw new Error('Product update imports require a URL handle or legacy Handle column.');
+  if(rows.length-1>MAX_ROWS)throw new Error('More than 20,000 rows; split the export before checking.');
+  const findings=[];
+  let countErrors=0,countWarnings=0,countInfo=0,skipped=0,variantRows=0;
+  const handles=new Map(), skuRows=new Map(), variantSignatures=new Map(), imagePositions=new Map();
+  const add=(severity,row,handle,sku,sourceField,problem,review)=>{
+    if(severity==='ERROR')countErrors++;
+    else if(severity==='WARNING')countWarnings++;
+    else countInfo++;
+    if(findings.length<MAX_FINDINGS)findings.push([severity,String(row||''),handle||'',sku||'',sourceField||'',problem,review]);
+  };
+  const column=role=>field[role]===-1?'':headers[field[role]];
+  const has=role=>field[role]!==-1;
+  const get=(cells,role)=>has(role)?String(cells[field[role]]??'').trim():'';
+  const importantVariantCols=['sku','price','compare','tracker','quantity'].filter(has);
+  const hasVariantFields=importantVariantCols.length>0;
+  if(mode==='update'&&hasVariantFields&&(!has('opt1n')||!has('opt1v'))){
+    add('ERROR',1,'','',column('sku')||column('price')||column('quantity'),
+        'Variant-related updates need Option1 name and Option1 value columns.',
+        'Export a full product CSV and preserve both option columns before updating variants.');
+  }
+  if(mode==='create'&&hasVariantFields&&(!has('opt1n')||!has('opt1v'))){
+    add('WARNING',1,'','',column('sku')||column('price'),
+        'Variant-related fields found without both Option1 columns.',
+        'Confirm whether each product is simple or has variants before importing.');
+  }
+  for(let i=1;i<rows.length;i++){
+    const cells=rows[i], number=i+1;
+    if(cells.length===1 && !cells[0].trim()){skipped++;continue;}
+    if(cells.length!==headers.length){
+      add('ERROR',number,'','','CSV columns',
+          'Field count '+cells.length+' does not match '+headers.length+' header columns.',
+          'Inspect quoting, embedded commas and field delimiters in the source row.');
+      continue;
+    }
+    const handle=get(cells,'handle'),sku=get(cells,'sku'),title=get(cells,'title');
+    const image=get(cells,'image');
+    const optionValues=['opt1v','opt2v','opt3v'].map(role=>get(cells,role));
+    const hasOptions=optionValues.some(Boolean);
+    const variantFieldsFilled=importantVariantCols.some(role=>get(cells,role)!=='')||hasOptions;
+    const imageOnly=!!(handle&&image&&!title&&!variantFieldsFilled);
+    if(variantFieldsFilled)variantRows++;
+    if(!handle){
+      if(mode==='update'||image||variantFieldsFilled){
+        add('ERROR',number,'',sku,column('handle')||'URL handle',
+            'Missing product handle on a variant, image or update row.',
+            'Use the exact URL handle from a current Shopify product export.');
+      }else if(mode==='create'&&title){
+        add('INFO',number,'',sku,'URL handle',
+            'Title-only product: Shopify can generate a handle on new single-product imports.',
+            'If adding variants or additional images, include a stable URL handle.');
+      }
+    } else {
+      if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(handle)){
+        add('WARNING',number,handle,sku,column('handle'),
+            'Handle includes characters outside lowercase letters, digits and single hyphens.',
+            'Review the handle before importing; use a stable URL-safe value.');
+      }
+      const group=handles.get(handle)||{rows:[],titles:0};
+      group.rows.push(number);
+      if(title)group.titles++;
+      handles.set(handle,group);
+    }
+    if(imageOnly) {
+      // Shopify permits image-only rows with the same handle and blank title / variant values.
+    } else if(variantFieldsFilled) {
+      for(let j=1;j<=3;j++){
+        const name=get(cells,'opt'+j+'n'),value=get(cells,'opt'+j+'v');
+        if(name&&!value) {
+          add('WARNING',number,handle,sku,column('opt'+j+'v')||('Option'+j+' value'),
+              'Option'+j+' name is present but its value is blank on this variant row.',
+              'Check that the variant is identified by the intended option value.');
+        } else if(value&&!name) {
+          add('WARNING',number,handle,sku,column('opt'+j+'n')||('Option'+j+' name'),
+              'Option'+j+' value is present without its option name.',
+              'Include the matching option name or review this variant row.');
+        }
+      }
+      if(handle&&has('opt1v')&&optionValues[0]){
+        const signature=JSON.stringify([handle,...optionValues.map(x=>x.toLowerCase())]);
+        if(variantSignatures.has(signature)){
+          add('WARNING',number,handle,sku,column('opt1v'),
+              'Possible repeated variant option combination; previously seen at row '+variantSignatures.get(signature)+'.',
+              'Verify distinct variant option combinations within the same product.');
+        }else variantSignatures.set(signature,number);
+      }
+    }
+    if(sku){
+      if(skuRows.has(sku)){
+        add('WARNING',number,handle,sku,column('sku'),
+            'SKU also appears at CSV row '+skuRows.get(sku)+'.',
+            'Check whether the same SKU was unintentionally assigned to multiple variants.');
+      } else skuRows.set(sku,number);
+    }
+    if(has('price')&&get(cells,'price')){
+      const value=currency(get(cells,'price'));
+      if(!Number.isFinite(value)){
+        add('ERROR',number,handle,sku,column('price'),
+            'Price is not a plain nonnegative decimal number.',
+            'Remove currency symbols and thousand separators; use e.g. 19.99.');
+      }
+    }
+    if(has('compare')&&get(cells,'compare')){
+      const list=currency(get(cells,'compare')),sale=currency(get(cells,'price'));
+      if(!Number.isFinite(list)){
+        add('ERROR',number,handle,sku,column('compare'),
+            'Compare-at price is not a plain nonnegative decimal number.',
+            'Use a plain price such as 29.99 or leave the field empty.');
+      }else if(Number.isFinite(sale)&&list<=sale) {
+        add('WARNING',number,handle,sku,column('compare'),
+            'Compare-at price is not greater than the regular price.',
+            'Review the intended discount; a compare-at price usually exceeds the price.');
+      }
+    }
+    if(has('quantity')&&get(cells,'quantity')){
+      const quantity=get(cells,'quantity');
+      if(!/^-?\d+$/.test(quantity)){
+        add('ERROR',number,handle,sku,column('quantity'),
+            'Inventory quantity is not an integer.',
+            'Use a whole number and confirm your Shopify inventory location setup.');
+      }
+      if(!get(cells,'tracker')) {
+        add('WARNING',number,handle,sku,column('quantity'),
+            'Quantity is supplied without an inventory tracker.',
+            'Check if the product should track inventory and whether this file is appropriate for your store.');
+      }
+    } else if(get(cells,'tracker')&&!get(cells,'quantity')&&has('quantity')){
+      add('WARNING',number,handle,sku,column('quantity'),
+          'Inventory tracker is set, but the quantity cell is blank.',
+          'Verify required quantities and multi-location inventory import requirements.');
+    }
+    if(image){
+      let parsed;
+      try{parsed=new URL(image);}catch{/* invalid URL */}
+      if(!parsed||!['https:','http:'].includes(parsed.protocol)||!parsed.hostname){
+        add('ERROR',number,handle,sku,column('image'),
+            'Image URL is not an absolute HTTP(S) URL.',
+            'Use an accessible absolute image URL; local file paths are not supported.');
+      }else if(parsed.protocol!=='https:'){
+        add('WARNING',number,handle,sku,column('image'),
+            'Image URL is HTTP rather than HTTPS.',
+            'Prefer a publicly accessible HTTPS image URL before import.');
+      }else if(/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(parsed.hostname)){
+        add('WARNING',number,handle,sku,column('image'),
+            'Image host appears private or local and might not be reachable by Shopify.',
+            'Use a public HTTPS address; this checker never fetches image URLs.');
+      }
+      if(handle&&has('position')&&get(cells,'position')){
+        const pos=get(cells,'position');
+        if(!/^[1-9]\d*$/.test(pos)){
+          add('WARNING',number,handle,sku,column('position'),
+              'Image position should be a positive whole number.',
+              'Check the order of images for this product.');
+        }else{
+          const signature=handle+'|'+pos;
+          if(imagePositions.has(signature)){
+            add('WARNING',number,handle,sku,column('position'),
+                'Image position duplicates row '+imagePositions.get(signature)+' for this handle.',
+                'Review the order of product images before importing.');
+          }else imagePositions.set(signature,number);
+        }
+      }
+    }
+  }
+  for(const [handle,group] of handles){
+    if(group.titles===0){
+      add('WARNING',group.rows[0],handle,'',column('title'),
+          'No nonempty Title value appears for this handle in the submitted file.',
+          'For a product create/update import, verify the parent product row and title.');
+    }
+  }
+  const count=countErrors+countWarnings+countInfo;
+  const metrics={totalRows:rows.length-1-skipped,products:handles.size,variantRows,
+    errors:countErrors,warnings:countWarnings,info:countInfo,issueCount:count,
+    shown:findings.length,truncated:Math.max(0,count-findings.length),
+    blankRows:skipped,mode};
+  const notices=[
+    'This is a preflight diagnostic, not Shopify import validation or a guarantee.',
+    'Existing products may be overwritten or variants changed when dependent columns are missing; always back up and test one or two products.',
+    'No image URLs were fetched and no Shopify account was accessed.',
+    'A WARNING is a review item, not necessarily a Shopify upload error.'
+  ];
+  const exportRows=[HEADER,...findings];
+  // Spreadsheet programs can execute data cells as formulas. Protect every report data row.
+  const csv='\uFEFF'+stringifyCSV(exportRows,',',true);
+  return{metrics,findings,notices,csv,headers,columns:field};
+}
+
+return {inspectShopifyProductCSV};
+})(CsvCore);
+
+(function(){
+  "use strict";
+  const form=document.getElementById("localcsv-form");
+  const input=document.getElementById("csv-file");
+  const mode=document.getElementById("mode");
+  const result=document.getElementById("result");
+  const summary=document.getElementById("summary");
+  const findings=document.getElementById("findings");
+  const download=document.getElementById("download");
+  const status=document.getElementById("status");
+  const clear=document.getElementById("clear");
+  let objectURL=null;
+  function forget(){
+    if(objectURL){URL.revokeObjectURL(objectURL);objectURL=null;}
+    download.removeAttribute("href");
+    result.hidden=true;
+    summary.textContent="";
+    findings.textContent="";
+  }
+  form.addEventListener("submit",async function(event){
+    event.preventDefault();
+    forget();
+    const file=input.files[0];
+    if(!file){status.textContent="Choose a CSV file first.";return;}
+    if(file.size>2200000){status.textContent="File too large: use a CSV under 2.2 MB.";return;}
+    status.textContent="Checking the file locally — no upload…";
+    try{
+      const text=await file.text();
+      const report=Shopify.inspectShopifyProductCSV(text,{mode:mode.value});
+      const m=report.metrics;
+      summary.textContent="CSV rows: "+m.totalRows+" | Products: "+m.products+
+        " | Errors: "+m.errors+" | Warnings: "+m.warnings+
+        " | Findings: "+m.issueCount;
+      const displayed=report.findings.slice(0,30);
+      const lines=displayed.map(row=>row.join(" | "));
+      findings.textContent=lines.length?lines.join("\n"):"No findings in this diagnostic. This does NOT guarantee Shopify import safety.";
+      const blob=new Blob([report.csv],{type:"text/csv;charset=utf-8"});
+      objectURL=URL.createObjectURL(blob);
+      download.href=objectURL;
+      download.download="shopify-preflight-findings.csv";
+      result.hidden=false;
+      status.textContent="Local check complete. Download the report or review the findings.";
+    }catch(err){
+      result.hidden=true;
+      status.textContent="Cannot inspect CSV: "+String(err&&err.message?err.message:err);
+    }
+  });
+  clear.addEventListener("click",function(){
+    form.reset();forget();
+    status.textContent="Cleared local file selection and generated report.";
+  });
+  window.addEventListener("beforeunload",forget,{once:true});
+})();
+</script>
+</body></html>
