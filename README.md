@@ -35,6 +35,18 @@ The HTML source is retained at [offline/shopify-csv-preflight.html](offline/shop
 
 ---
 
+## New: zero-install THREE-CSV supplier comparison (v1.2.0)
+
+**[Download the free 3-CSV browser audit HTML](https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/releases/latest/download/shopify-supplier-threeway-audit.html).** Save it, open it in a modern browser (even without an internet connection), and select: **current Shopify export**, **supplier SKU/cost CSV**, and **proposed Shopify product CSV**. It generates six local review reports covering SKU matches, exceptions, field changes and Shopify CSV preflight findings. No Node.js installation, signup, account token, merchant-file upload or advertising. Each input must be under 2.2 MB; ambiguous or blank comparison keys are rejected rather than guessed.
+
+**This is a dry-run audit only.** It never imports or updates Shopify. In particular, do **not** import `supplier-matches-NOT-SHOPIFY-IMPORT.csv`: it includes private supplier-only columns. Keep the original product export, check handle/variant dependencies, and test a couple of products separately before any real update. The browser HTML reuses the exact four pure engines and six-report generator tested by this repository's CLI.
+
+**한국어:** [공급업체 SKU 대조·Shopify 변경사항 검사 HTML 다운로드](https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/releases/latest/download/shopify-supplier-threeway-audit.html). 다운로드 후 HTML 파일을 직접 열고 기존 상품 CSV·공급업체 SKU CSV·변경 예정 상품 CSV를 선택하세요. **SKU 매칭/누락·가격/재고 변경·상품 CSV 오류**를 6개 보고서로 확인할 수 있습니다. 모든 처리는 PC의 브라우저에서 이루어지며 파일 업로드·로그인·설치·광고는 없습니다. 분석용 공급업체 병합 CSV는 Shopify에 가져오면 안 됩니다.
+
+Build reproducibly with `python3 scripts/build_supplier_browser.py`; verify via `--check`, `npm test`, and optional real Chrome smoke test `node scripts/smoke_supplier_browser.mjs`. The original CLI and single-CSV offline inspector remain available and unchanged.
+
+---
+
 ## What it checks
 
 Imagine a clothing store with two T-shirt sizes and one cap. You receive a supplier's updated prices and want to see which product fields will change before a bulk import.
