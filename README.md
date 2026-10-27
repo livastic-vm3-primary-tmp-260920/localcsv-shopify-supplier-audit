@@ -6,6 +6,23 @@ No signup, npm dependencies, Shopify permissions, customer-file uploads, externa
 
 **Prefer a browser?** Try the free [SKU CSV Join](https://tools.trendbridged.com/tools/join-csv-by-key/), [Compare CSV Files](https://tools.trendbridged.com/tools/compare-csv-files/) and [Shopify CSV Preflight](https://tools.trendbridged.com/tools/shopify-csv-preflight/) tools. No signup required. The file-processing editors contain no third-party advertising scripts; the informational pages show **optional labeled ads only with affirmative visitor consent**.
 
+## Try the open-source Shopify CSV inspector directly
+
+**[Open the free online demo — no signup, no CSV upload, no ads](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/)**.
+
+This is an educational, browser-local GitHub Pages demonstration of
+the offline Shopify CSV preflight below. All checking and report
+generation happen in your browser; it does not log in to or alter a
+Shopify account. **Not affiliated with Shopify.** It may detect errors,
+but passing checks does **not** guarantee a safe import.
+
+**한국어:** [무료 Shopify 상품 CSV 사전 검사 바로 사용](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/) —
+회원가입, 광고, CSV 업로드 없이 브라우저에서 검사합니다.
+실제 Shopify 상품 업로드를 대신하거나 성공을 보장하지 않으므로
+원본을 백업하세요.
+
+---
+
 ## New: one-file OFFLINE Shopify CSV preflight (no Node install)
 
 **[Download the fully self-contained HTML](https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/releases/latest/download/shopify-csv-preflight.html)**. Open it directly in a modern browser with internet disconnected if you wish. Select ONE Shopify product CSV, choose Update or Create, then click **Inspect locally**. It reports errors and warnings and offers a CSV findings download. It needs **no account, npm install, analytics, external scripts, network requests or advertising**.
