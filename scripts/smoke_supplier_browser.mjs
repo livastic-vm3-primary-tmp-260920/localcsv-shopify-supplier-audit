@@ -109,7 +109,7 @@ const target=requestedTarget?.startsWith("https://")?requestedTarget:
  let observed;
  for(let i=0;i<45;i++){
    const payload=await cdp("Runtime.evaluate",{
-      expression:"JSON.stringify({status:document.getElementById('status').textContent,summary:document.getElementById('summary').textContent,shown:!document.getElementById('results').hidden,reports:[...document.querySelectorAll('#reports a')].map(a=>a.download)})",
+      expression:"JSON.stringify({status:document.getElementById('status').textContent,summary:document.getElementById('summary').textContent,shown:!document.getElementById('results').hidden,previewShown:!document.getElementById('review-preview').hidden,previewRows:[...document.querySelectorAll('#changed-fields-preview li')].map(e=>e.textContent),riskText:document.getElementById('import-risk-summary').textContent,reports:[...document.querySelectorAll('#reports a')].map(a=>a.download)})",
       returnByValue:true
    });
    observed=JSON.parse(payload.result.value);
@@ -120,6 +120,12 @@ const target=requestedTarget?.startsWith("https://")?requestedTarget:
  assert.equal(observed.reports.length,6);
  assert.match(observed.summary,/Supplier matches: 3/);
  assert.match(observed.summary,/Changed records: 2/);
+ assert.match(observed.summary,/Manual review: YES/);
+ assert.equal(observed.previewShown,true);
+ assert.equal(observed.previewRows.length,2);
+ assert.match(observed.previewRows[0],/TEE-BLK-M.*Price.*29.00.*31.00/);
+ assert.match(observed.previewRows[1],/CAP-WOOL.*Inventory quantity.*7.*6/);
+ assert.match(observed.riskText,/0 included cells changing to blank/);
  assert.ok(observed.reports.includes("supplier-matches-NOT-SHOPIFY-IMPORT.csv"));
  assert.equal(requested,beforeAuditRequestCount,"The CSV audit triggered network requests");
  console.log("CHROME_END_TO_END_PASS",JSON.stringify({workflow:runFictionalSample?"one-click fictional sample":"user-selected three CSVs",reports:6,summary:observed.summary,networkRequestsDuringAudit:requested-beforeAuditRequestCount}));

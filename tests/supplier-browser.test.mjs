@@ -25,6 +25,7 @@ function page({source=INPUTS}={}){
  const objectURLs=[];
  const revoked=[];
  for(const name of ["sku-audit-form","run","status","results","summary","reports","clear",
+                    "review-preview","changed-fields-preview","import-risk-summary","import-risk-examples",
                     "current","supplier","proposed"]){
    elements[name]={
       id:name,textContent:"",disabled:false,hidden:false,files:[],
@@ -104,6 +105,13 @@ test("real fictional three-CSV workflow yields EXACT six pure CLI reports withou
  assert.equal(ui.elements.run.disabled,false);
  assert.match(ui.elements.summary.textContent,/Supplier matches: 3/);
  assert.match(ui.elements.summary.textContent,/Changed records: 2/);
+ assert.match(ui.elements.summary.textContent,/Manual review: YES/);
+ assert.equal(ui.elements["review-preview"].hidden,false);
+ assert.equal(ui.elements["changed-fields-preview"].children.length,2);
+ assert.match(ui.elements["changed-fields-preview"].children[0].textContent,/TEE-BLK-M.*Price.*29.00.*31.00/);
+ assert.match(ui.elements["changed-fields-preview"].children[1].textContent,/CAP-WOOL.*Inventory quantity.*7.*6/);
+ assert.match(ui.elements["import-risk-summary"].textContent,/0 included cells changing to blank/);
+ assert.equal(ui.elements["import-risk-examples"].children.length,0);
  assert.match(ui.elements.status.textContent,/Six local reports prepared/);
  const {files}=makeReports(INPUTS);
  for(let i=0;i<ui.objectURLs.length;i++){
@@ -157,6 +165,9 @@ test("clearing and leaving releases all six private report blob URLs",async()=>{
  assert.equal(ui.revoked.length,6);
  assert.equal(ui.elements.reports.children.length,0);
  assert.equal(ui.elements.results.hidden,true);
+ assert.equal(ui.elements["review-preview"].hidden,true);
+ assert.equal(ui.elements["changed-fields-preview"].children.length,0);
+ assert.equal(ui.elements["import-risk-examples"].children.length,0);
  for(const key of ["current","supplier","proposed"]){
    assert.equal(ui.elements[key].files.length,0);
  }
@@ -178,4 +189,70 @@ test("standalone HTML presents safety limits, Korean instructions, honest free r
  ]){
    assert.ok(HTML.toLowerCase().includes(text.toLowerCase()),text);
  }
+});
+
+
+test("real Shopify import risks count only INCLUDED fields changed to blank, option values or handles",async()=>{
+ const modified=INPUTS.proposed.replace(
+   "cotton-tee,Cotton Tee,TEE-BLK-M,Color,Black,Size,M,31.00",
+   "cotton-tee-new,Cotton Tee,TEE-BLK-M,Color,Blue,Size,M,"
+ );
+ assert.notEqual(modified,INPUTS.proposed);
+ const {summary,changePreview,comparisonReportLines}=makeReports({...INPUTS,proposed:modified});
+ assert.equal(summary.possibleImportRisks.includedBlankCellChanges,1);
+ assert.equal(summary.possibleImportRisks.variantOptionValueChanges,1);
+ assert.equal(summary.possibleImportRisks.productHandleChanges,1);
+ assert.equal(summary.possibleImportRisks.examples.length,3);
+ assert.equal(summary.manualReviewRequired,true);
+ assert.ok(comparisonReportLines>=3);
+ assert.ok(changePreview.length<=12);
+ const ui=page({source:{...INPUTS,proposed:modified}});
+ await ui.submit();
+ assert.equal(ui.elements.results.hidden,false);
+ assert.equal(ui.elements["review-preview"].hidden,false);
+ assert.match(ui.elements["import-risk-summary"].textContent,/1 included cells changing to blank/);
+ assert.match(ui.elements["import-risk-summary"].textContent,/1 variant option values changed/);
+ assert.match(ui.elements["import-risk-summary"].textContent,/1 product handles changed/);
+ assert.equal(ui.elements["import-risk-examples"].children.length,3);
+ assert.ok(ui.elements["import-risk-examples"].children.some(item=>/POSSIBLE_BLANK_OVERWRITE/.test(item.textContent)));
+ assert.ok(ui.elements["import-risk-examples"].children.some(item=>/VARIANT_OPTION_VALUE_CHANGE/.test(item.textContent)));
+ assert.ok(ui.elements["import-risk-examples"].children.some(item=>/PRODUCT_HANDLE_CHANGE/.test(item.textContent)));
+});
+
+test("omitted columns are NOT mistaken for intentionally blank cells",()=>{
+ const before=INPUTS.current.replace("URL handle,Title,", "URL handle,Vendor,Title,")
+  .replaceAll("cotton-tee,", "cotton-tee,Example Vendor,")
+  .replace("wool-cap,", "wool-cap,Example Vendor,");
+ const {summary}=makeReports({...INPUTS,current:before});
+ assert.equal(summary.possibleImportRisks.includedBlankCellChanges,0,
+  "Omitted import columns must not be labeled as blank overwrites");
+});
+
+test("user-controlled CSV text is added ONLY via textContent, never HTML injection",async()=>{
+ const fake='<img src=x onerror=alert(1)>';
+ const altered=INPUTS.proposed.replace("31.00",fake);
+ const ui=page({source:{...INPUTS,proposed:altered}});
+ await ui.submit();
+ assert.equal(ui.elements.results.hidden,false);
+ assert.ok(ui.elements["changed-fields-preview"].children.some(x=>x.textContent.includes(fake)));
+ const script=JS;
+ assert.ok(!script.includes(".innerHTML"));
+ assert.ok(!script.includes("insertAdjacentHTML"));
+ assert.ok(!script.includes("document.write"));
+ assert.ok(script.includes("item.textContent="));
+});
+
+test("blanking an option value warns for BOTH overwrite and destructive variant change",()=>{
+ const variant=INPUTS.proposed.replace("Color,Black,Size,M,31.00",
+                                       "Color,,Size,M,31.00");
+ assert.notEqual(variant,INPUTS.proposed);
+ const {summary}=makeReports({...INPUTS,proposed:variant});
+ const risks=summary.possibleImportRisks;
+ assert.equal(risks.includedBlankCellChanges,1);
+ assert.equal(risks.variantOptionValueChanges,1);
+ assert.equal(risks.productHandleChanges,0);
+ assert.deepEqual(risks.examples.map(x=>x.type),[
+   "POSSIBLE_BLANK_OVERWRITE","VARIANT_OPTION_VALUE_CHANGE"
+ ]);
+ assert.equal(summary.manualReviewRequired,true);
 });

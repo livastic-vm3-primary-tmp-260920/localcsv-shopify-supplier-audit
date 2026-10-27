@@ -37,6 +37,10 @@ APP = r"""
   const results=document.getElementById("results");
   const summary=document.getElementById("summary");
   const reports=document.getElementById("reports");
+  const preview=document.getElementById("review-preview");
+  const changes=document.getElementById("changed-fields-preview");
+  const riskSummary=document.getElementById("import-risk-summary");
+  const riskList=document.getElementById("import-risk-examples");
   const clear=document.getElementById("clear");
   let urls=[];
 
@@ -44,6 +48,10 @@ APP = r"""
     for(const url of urls){ URL.revokeObjectURL(url); }
     urls=[];
     reports.replaceChildren();
+    changes.replaceChildren();
+    riskList.replaceChildren();
+    riskSummary.textContent="";
+    preview.hidden=true;
     summary.textContent="";
     results.hidden=true;
   }
@@ -76,6 +84,34 @@ APP = r"""
         " | Added/removed: "+(m.changedProductRecords.added+m.changedProductRecords.removed)+
         " | Manual review: "+(m.manualReviewRequired?"YES":"NO")+
         ". This is an AUDIT, not an import.";
+      // Show the existing diff engine's bounded FIRST 12 report rows.
+      // Never place customer CSV text into HTML or third-party scripts.
+      for(const row of result.changePreview){
+        const item=document.createElement("li");
+        item.textContent=String(row[0])+" / SKU "+String(row[1])+
+          " / "+String(row[2])+": "+
+          JSON.stringify(String(row[3]))+" → "+JSON.stringify(String(row[4]));
+        changes.append(item);
+      }
+      if(result.changePreview.length===0){
+        const item=document.createElement("li");
+        item.textContent="No added, removed or changed rows found by SKU.";
+        changes.append(item);
+      }
+      const danger=m.possibleImportRisks;
+      riskSummary.textContent=
+        "Advisory signals across matched SKU rows: "+
+        danger.includedBlankCellChanges+" included cells changing to blank; "+
+        danger.variantOptionValueChanges+" variant option values changed; "+
+        danger.productHandleChanges+" product handles changed. "+
+        "These are possible import risks, NOT official Shopify validation. "+
+        "Review all "+result.comparisonReportLines+" comparison report lines.";
+      for(const issue of danger.examples){
+        const item=document.createElement("li");
+        item.textContent=issue.type+": SKU "+issue.sku+" / "+issue.field;
+        riskList.append(item);
+      }
+      preview.hidden=false;
       for(const [name,data] of result.files){
         const link=document.createElement("a");
         const item=document.createElement("li");
@@ -146,7 +182,20 @@ for comparison. Ambiguous data stops rather than silently guessing.</p>
 <p id="status" role="status" aria-live="polite">Choose three CSVs to begin. No data leaves your browser.</p>
 <section id="results" class="panel" hidden>
 <h2>Review and download six reports / 보고서 6개</h2>
-<p id="summary"></p><ul id="reports"></ul>
+<p id="summary"></p>
+<section id="review-preview" aria-labelledby="review-preview-title" hidden>
+<h3 id="review-preview-title">Change preview and potential import risks / 변경 내역 및 위험 신호</h3>
+<p>The first 12 report rows are shown below (not necessarily all changes).
+The full findings are in the downloadable reports. All data stays in your browser.</p>
+<ol id="changed-fields-preview"></ol>
+<p id="import-risk-summary" role="status"></p>
+<ul id="import-risk-examples"></ul>
+<p class="note">Shopify matches product imports by URL handle, not by SKU alone.
+A nonrequired field included as blank in an import may erase an existing
+value. A changed option value may recreate variant IDs. Back up the export,
+check official Shopify rules and test one or two products first.</p>
+</section>
+<ul id="reports"></ul>
 <p><strong>Do not import</strong> supplier-matches-NOT-SHOPIFY-IMPORT.csv;
 the six files are private review reports, not merchant upload instructions.</p></section>
 <section class="panel">
@@ -186,7 +235,7 @@ def generate() -> str:
         "const CsvDiff="+diff+"(CsvCore);",
         "const Shopify="+shopify+"(CsvCore);",
         "const {joinCSVByKey}=CsvLookup;",
-        "const {compareCSVExports}=CsvDiff;",
+        "const {compareCSVExports,readCSVForComparison}=CsvDiff;",
         "const {inspectShopifyProductCSV}=Shopify;",
         logic,
         APP,

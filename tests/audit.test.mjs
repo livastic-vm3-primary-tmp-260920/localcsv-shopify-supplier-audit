@@ -57,7 +57,12 @@ test("real LocalCSV core modules produce exactly expected merchant data results"
   assert.equal(summary.changedProductRecords.changedCells, 2);
   assert.equal(summary.existingShopifyPreflight.errors, 0);
   assert.equal(summary.proposedShopifyPreflight.warnings, 0);
-  assert.equal(summary.manualReviewRequired, false);
+  assert.equal(summary.manualReviewRequired, true,
+    "Changed prices or inventory always need review even if preflight has no errors");
+  assert.deepEqual(summary.possibleImportRisks.examples, []);
+  assert.equal(summary.possibleImportRisks.includedBlankCellChanges, 0);
+  assert.equal(summary.possibleImportRisks.variantOptionValueChanges, 0);
+  assert.equal(summary.possibleImportRisks.productHandleChanges, 0);
   assert.equal(summary.outputCannotBeImportedDirectlyIntoShopify, true);
   assert.equal(files.size, 6);
   const joined = parseCSV(files.get("supplier-matches-NOT-SHOPIFY-IMPORT.csv").replace(/^\uFEFF/, ""));

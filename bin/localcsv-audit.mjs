@@ -12,7 +12,7 @@ import {readFile, mkdir, writeFile, rm} from "node:fs/promises";
 import {fileURLToPath} from "node:url";
 
 import {joinCSVByKey} from "../lib/csv-lookup-core.mjs";
-import {compareCSVExports} from "../lib/csv-diff-core.mjs";
+import {compareCSVExports, readCSVForComparison} from "../lib/csv-diff-core.mjs";
 import {inspectShopifyProductCSV} from "../lib/shopify-preflight-core.mjs";
 
 const HELP = [
@@ -85,12 +85,61 @@ export function makeReports({current, supplier, proposed}) {
   const diff = compareCSVExports(current, proposed, {
     key: "SKU", caseSensitive: true,
   });
+
+  // These are advisory RISK signals, not Shopify importer predictions.
+  // Evaluate matched SKU rows only, and only columns actually INCLUDED
+  // in BOTH exports. Omitting a column is not equivalent to blanking it.
+  const oldData = readCSVForComparison(current, "Current Shopify export");
+  const newData = readCSVForComparison(proposed, "Proposed Shopify export");
+  const oldBySKU = new Map(oldData.records.map(row => [
+    String(row.fields.SKU).trim(), row.fields
+  ]));
+  const sharedFields = newData.headers.filter(field =>
+    field !== "SKU" && oldData.headers.includes(field));
+  const importRisk = {
+    includedBlankCellChanges: 0,
+    variantOptionValueChanges: 0,
+    productHandleChanges: 0,
+    examples: [],
+    note: "Advisory only: Shopify may overwrite included blank cells, treat changed option values as new variants, or identify products by URL handle. SKU is only the comparison key. Check official import rules."
+  };
+  for (const row of newData.records) {
+    const key = String(row.fields.SKU).trim();
+    const older = oldBySKU.get(key);
+    if (!older) continue;
+    for (const field of sharedFields) {
+      const from = String(older[field] ?? "");
+      const to = String(row.fields[field] ?? "");
+      if (from === to) continue;
+      // A blanked variant option or handle can have MORE THAN ONE risk.
+      // Report overlapping concerns rather than losing one via else-if.
+      const detected = [];
+      if (from.trim() && !to.trim()) {
+        detected.push("POSSIBLE_BLANK_OVERWRITE");
+        importRisk.includedBlankCellChanges++;
+      }
+      if (/^Option[123] value$/i.test(field)) {
+        detected.push("VARIANT_OPTION_VALUE_CHANGE");
+        importRisk.variantOptionValueChanges++;
+      }
+      if (/^(URL handle|Handle)$/i.test(field)) {
+        detected.push("PRODUCT_HANDLE_CHANGE");
+        importRisk.productHandleChanges++;
+      }
+      for (const type of detected) {
+        if (importRisk.examples.length < 12) {
+          importRisk.examples.push({type, sku:key, field});
+        }
+      }
+    }
+  }
   const manualReviewRequired = Boolean(
     before.metrics.errors || after.metrics.errors ||
     before.metrics.warnings || after.metrics.warnings ||
     joined.metrics.unmatched || joined.metrics.blankPrimaryKeys ||
     joined.metrics.duplicatesInPrimary ||
-    diff.metrics.added || diff.metrics.removed
+    diff.metrics.added || diff.metrics.removed ||
+    diff.metrics.changed
   );
   const summary = {
     tool: "LocalCSV Lab — offline supplier SKU audit",
@@ -100,6 +149,7 @@ export function makeReports({current, supplier, proposed}) {
     advertisingLoaded: false,
     supplierJoin: joined.metrics,
     changedProductRecords: diff.metrics,
+    possibleImportRisks: importRisk,
     existingShopifyPreflight: before.metrics,
     proposedShopifyPreflight: after.metrics,
     manualReviewRequired,
@@ -120,6 +170,10 @@ export function makeReports({current, supplier, proposed}) {
   };
   return {
     summary,
+    // The first 12 report rows only, already produced by our shared CSV
+    // diff engine; never parse arbitrarily large downloaded reports.
+    changePreview: diff.previewRows.slice(1),
+    comparisonReportLines: diff.reportLines,
     files: new Map([
       ["supplier-matches-NOT-SHOPIFY-IMPORT.csv", joined.csv],
       ["unmatched-skus.csv", joined.unmatchedCSV],

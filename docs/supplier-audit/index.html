@@ -3,7 +3,7 @@
 <head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="index,follow">
-<meta name="description" content="Free open-source demo: locally compare a Shopify product export, a supplier SKU CSV and a proposed catalog. Six private reports, no signup or file upload.">
+<meta name="description" content="Free Shopify supplier CSV comparison with instant change preview and blank overwrite and variant risk warnings. Six private reports. No upload or signup.">
 <link rel="canonical" href="https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-audit/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Shopify Supplier CSV Change Comparison — Free Browser Demo">
@@ -108,7 +108,20 @@ for comparison. Ambiguous data stops rather than silently guessing.</p>
 <p id="status" role="status" aria-live="polite">Choose three CSVs to begin. No data leaves your browser.</p>
 <section id="results" class="panel" hidden>
 <h2>Review and download six reports / 보고서 6개</h2>
-<p id="summary"></p><ul id="reports"></ul>
+<p id="summary"></p>
+<section id="review-preview" aria-labelledby="review-preview-title" hidden>
+<h3 id="review-preview-title">Change preview and potential import risks / 변경 내역 및 위험 신호</h3>
+<p>The first 12 report rows are shown below (not necessarily all changes).
+The full findings are in the downloadable reports. All data stays in your browser.</p>
+<ol id="changed-fields-preview"></ol>
+<p id="import-risk-summary" role="status"></p>
+<ul id="import-risk-examples"></ul>
+<p class="note">Shopify matches product imports by URL handle, not by SKU alone.
+A nonrequired field included as blank in an import may erase an existing
+value. A changed option value may recreate variant IDs. Back up the export,
+check official Shopify rules and test one or two products first.</p>
+</section>
+<ul id="reports"></ul>
 <p><strong>Do not import</strong> supplier-matches-NOT-SHOPIFY-IMPORT.csv;
 the six files are private review reports, not merchant upload instructions.</p></section>
 <section class="panel">
@@ -130,9 +143,10 @@ The original free LocalCSV Lab informational pages may show clearly labeled adve
 the actual CSV editors and this offline HTML contain no advertiser script.</p>
 <section class="panel">
 <h2>Source and educational scope</h2>
-<p>All browser scripts on this page are byte-identical to the released MIT-licensed
+<p>The core audit script is byte-identical to the MIT-licensed
 <a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit" rel="noopener noreferrer">source repository</a>'s standalone
-offline example. No accounts, backend, subscriptions, telemetry, remote APIs,
+offline example. This educational page adds only a locally bundled, fictional
+one-click sample loader. No accounts, backend, subscriptions, telemetry, remote APIs,
 external scripts or advertising. It is an open-source learning example,
 not a commercial hosting service or the official Shopify product importer.
 You can also
@@ -865,7 +879,7 @@ function inspectShopifyProductCSV(csvText,{mode='update'}={}) {
 return {inspectShopifyProductCSV};
 })(CsvCore);
 const {joinCSVByKey}=CsvLookup;
-const {compareCSVExports}=CsvDiff;
+const {compareCSVExports,readCSVForComparison}=CsvDiff;
 const {inspectShopifyProductCSV}=Shopify;
 function makeReports({current, supplier, proposed}) {
   // All input validation takes place BEFORE touching the output filesystem.
@@ -878,12 +892,61 @@ function makeReports({current, supplier, proposed}) {
   const diff = compareCSVExports(current, proposed, {
     key: "SKU", caseSensitive: true,
   });
+
+  // These are advisory RISK signals, not Shopify importer predictions.
+  // Evaluate matched SKU rows only, and only columns actually INCLUDED
+  // in BOTH exports. Omitting a column is not equivalent to blanking it.
+  const oldData = readCSVForComparison(current, "Current Shopify export");
+  const newData = readCSVForComparison(proposed, "Proposed Shopify export");
+  const oldBySKU = new Map(oldData.records.map(row => [
+    String(row.fields.SKU).trim(), row.fields
+  ]));
+  const sharedFields = newData.headers.filter(field =>
+    field !== "SKU" && oldData.headers.includes(field));
+  const importRisk = {
+    includedBlankCellChanges: 0,
+    variantOptionValueChanges: 0,
+    productHandleChanges: 0,
+    examples: [],
+    note: "Advisory only: Shopify may overwrite included blank cells, treat changed option values as new variants, or identify products by URL handle. SKU is only the comparison key. Check official import rules."
+  };
+  for (const row of newData.records) {
+    const key = String(row.fields.SKU).trim();
+    const older = oldBySKU.get(key);
+    if (!older) continue;
+    for (const field of sharedFields) {
+      const from = String(older[field] ?? "");
+      const to = String(row.fields[field] ?? "");
+      if (from === to) continue;
+      // A blanked variant option or handle can have MORE THAN ONE risk.
+      // Report overlapping concerns rather than losing one via else-if.
+      const detected = [];
+      if (from.trim() && !to.trim()) {
+        detected.push("POSSIBLE_BLANK_OVERWRITE");
+        importRisk.includedBlankCellChanges++;
+      }
+      if (/^Option[123] value$/i.test(field)) {
+        detected.push("VARIANT_OPTION_VALUE_CHANGE");
+        importRisk.variantOptionValueChanges++;
+      }
+      if (/^(URL handle|Handle)$/i.test(field)) {
+        detected.push("PRODUCT_HANDLE_CHANGE");
+        importRisk.productHandleChanges++;
+      }
+      for (const type of detected) {
+        if (importRisk.examples.length < 12) {
+          importRisk.examples.push({type, sku:key, field});
+        }
+      }
+    }
+  }
   const manualReviewRequired = Boolean(
     before.metrics.errors || after.metrics.errors ||
     before.metrics.warnings || after.metrics.warnings ||
     joined.metrics.unmatched || joined.metrics.blankPrimaryKeys ||
     joined.metrics.duplicatesInPrimary ||
-    diff.metrics.added || diff.metrics.removed
+    diff.metrics.added || diff.metrics.removed ||
+    diff.metrics.changed
   );
   const summary = {
     tool: "LocalCSV Lab — offline supplier SKU audit",
@@ -893,6 +956,7 @@ function makeReports({current, supplier, proposed}) {
     advertisingLoaded: false,
     supplierJoin: joined.metrics,
     changedProductRecords: diff.metrics,
+    possibleImportRisks: importRisk,
     existingShopifyPreflight: before.metrics,
     proposedShopifyPreflight: after.metrics,
     manualReviewRequired,
@@ -913,6 +977,10 @@ function makeReports({current, supplier, proposed}) {
   };
   return {
     summary,
+    // The first 12 report rows only, already produced by our shared CSV
+    // diff engine; never parse arbitrarily large downloaded reports.
+    changePreview: diff.previewRows.slice(1),
+    comparisonReportLines: diff.reportLines,
     files: new Map([
       ["supplier-matches-NOT-SHOPIFY-IMPORT.csv", joined.csv],
       ["unmatched-skus.csv", joined.unmatchedCSV],
@@ -933,6 +1001,10 @@ function makeReports({current, supplier, proposed}) {
   const results=document.getElementById("results");
   const summary=document.getElementById("summary");
   const reports=document.getElementById("reports");
+  const preview=document.getElementById("review-preview");
+  const changes=document.getElementById("changed-fields-preview");
+  const riskSummary=document.getElementById("import-risk-summary");
+  const riskList=document.getElementById("import-risk-examples");
   const clear=document.getElementById("clear");
   let urls=[];
 
@@ -940,6 +1012,10 @@ function makeReports({current, supplier, proposed}) {
     for(const url of urls){ URL.revokeObjectURL(url); }
     urls=[];
     reports.replaceChildren();
+    changes.replaceChildren();
+    riskList.replaceChildren();
+    riskSummary.textContent="";
+    preview.hidden=true;
     summary.textContent="";
     results.hidden=true;
   }
@@ -972,6 +1048,34 @@ function makeReports({current, supplier, proposed}) {
         " | Added/removed: "+(m.changedProductRecords.added+m.changedProductRecords.removed)+
         " | Manual review: "+(m.manualReviewRequired?"YES":"NO")+
         ". This is an AUDIT, not an import.";
+      // Show the existing diff engine's bounded FIRST 12 report rows.
+      // Never place customer CSV text into HTML or third-party scripts.
+      for(const row of result.changePreview){
+        const item=document.createElement("li");
+        item.textContent=String(row[0])+" / SKU "+String(row[1])+
+          " / "+String(row[2])+": "+
+          JSON.stringify(String(row[3]))+" → "+JSON.stringify(String(row[4]));
+        changes.append(item);
+      }
+      if(result.changePreview.length===0){
+        const item=document.createElement("li");
+        item.textContent="No added, removed or changed rows found by SKU.";
+        changes.append(item);
+      }
+      const danger=m.possibleImportRisks;
+      riskSummary.textContent=
+        "Advisory signals across matched SKU rows: "+
+        danger.includedBlankCellChanges+" included cells changing to blank; "+
+        danger.variantOptionValueChanges+" variant option values changed; "+
+        danger.productHandleChanges+" product handles changed. "+
+        "These are possible import risks, NOT official Shopify validation. "+
+        "Review all "+result.comparisonReportLines+" comparison report lines.";
+      for(const issue of danger.examples){
+        const item=document.createElement("li");
+        item.textContent=issue.type+": SKU "+issue.sku+" / "+issue.field;
+        riskList.append(item);
+      }
+      preview.hidden=false;
       for(const [name,data] of result.files){
         const link=document.createElement("a");
         const item=document.createElement("li");

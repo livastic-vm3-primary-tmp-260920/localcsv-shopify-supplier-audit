@@ -17,7 +17,7 @@ PUBLIC = "https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-sup
 
 OFFLINE_ROBOTS = '<meta name="robots" content="noindex,nofollow">'
 PUBLIC_META = f'''<meta name="robots" content="index,follow">
-<meta name="description" content="Free open-source demo: locally compare a Shopify product export, a supplier SKU CSV and a proposed catalog. Six private reports, no signup or file upload.">
+<meta name="description" content="Free Shopify supplier CSV comparison with instant change preview and blank overwrite and variant risk warnings. Six private reports. No upload or signup.">
 <link rel="canonical" href="{PUBLIC}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Shopify Supplier CSV Change Comparison — Free Browser Demo">
@@ -133,9 +133,10 @@ reference has no advertising at all.</p>
 OLD_END = '<footer><p class="muted">Free, MIT-licensed open-source companion. Not affiliated with Shopify.'
 NEW_END = '''<section class="panel">
 <h2>Source and educational scope</h2>
-<p>All browser scripts on this page are byte-identical to the released MIT-licensed
+<p>The core audit script is byte-identical to the MIT-licensed
 <a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit" rel="noopener noreferrer">source repository</a>'s standalone
-offline example. No accounts, backend, subscriptions, telemetry, remote APIs,
+offline example. This educational page adds only a locally bundled, fictional
+one-click sample loader. No accounts, backend, subscriptions, telemetry, remote APIs,
 external scripts or advertising. It is an open-source learning example,
 not a commercial hosting service or the official Shopify product importer.
 You can also
