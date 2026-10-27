@@ -29,7 +29,7 @@ try{
   await sleep(100);
  }
  if(!port)throw Error("Chrome did not start a local CDP listener");
- const target=pathToFileURL(path.join(ROOT,"offline/shopify-supplier-threeway-audit.html")).href;
+ const target=pathToFileURL(process.argv[2]?path.resolve(process.argv[2]):path.join(ROOT,"offline/shopify-supplier-threeway-audit.html")).href;
  const created=await fetch("http://127.0.0.1:"+port+"/json/new?"+encodeURIComponent(target),{method:"PUT"});
  if(!created.ok)throw Error("Cannot open local file in isolated Chrome");
  const tab=await created.json();

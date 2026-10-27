@@ -34,6 +34,10 @@ It has no accounts, subscriptions, Shopify integration, telemetry,
 external scripts or advertising. It is a client-side reference tool,
 not an import or a commercial service. Its checks are advisory, and
 they cannot replace Shopify's official import requirements.</p>
+<p>Need to compare a supplier SKU price list with <em>both</em> a current and proposed
+Shopify product CSV? Try the <a href="supplier-audit/">free, no-upload
+three-CSV supplier audit educational demo</a>. It generates six local review
+reports, not Shopify import files, with no advertising or user accounts.</p>
 </section>
 <h2>Privacy and import limitations</h2>'''
 

@@ -1,0 +1,993 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="index,follow">
+<meta name="description" content="Free open-source demo: locally compare a Shopify product export, a supplier SKU CSV and a proposed catalog. Six private reports, no signup or file upload.">
+<link rel="canonical" href="https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-audit/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Shopify Supplier CSV Change Comparison — Free Browser Demo">
+<meta property="og:description" content="Try a free educational open-source 3-CSV Shopify pre-import audit. No file uploads or advertising.">
+<meta property="og:url" content="https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-audit/">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Shopify Supplier CSV Comparison — Free Open-Source Browser Demo</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#12393c;background:#f5faf8;line-height:1.55}
+*{box-sizing:border-box}
+body{margin:0}
+main{max-width:810px;padding:2rem 1.2rem 5rem;margin:auto}
+h1{font-size:clamp(1.7rem,5vw,2.5rem);line-height:1.18}
+h2{margin-top:1.8rem}
+p{max-width:75ch}
+.panel{background:white;border:1px solid #adc7c6;padding:1.2rem;border-radius:12px;margin:1.2rem 0}
+label{display:block;font-weight:700;margin:.9rem 0}
+input,select{display:block;font:inherit;width:100%;padding:.55rem;background:#f5fbfa;border:1px solid #678e8f;border-radius:6px}
+button{font:inherit;padding:.6rem 1rem;border:2px solid #0c6266;border-radius:6px;cursor:pointer}
+button[type=submit]{background:#08686b;color:white}
+button[type=button]{background:white;color:#143638}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #b3631d;outline-offset:2px}
+.actions{display:flex;flex-wrap:wrap;gap:.7rem;margin-top:1.1rem}
+.note{border-left:4px solid #ab5b12;background:#fff8ed;padding:.7rem 1rem}
+.muted{font-size:.94rem;color:#386569}
+a{color:#055c6b}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#edf5f4;padding:1rem}
+footer{border-top:1px solid #b0c8c7;margin-top:2.3rem}
+</style></head>
+<body><main>
+<p class="muted">Open-source educational example · Browser-local · Free · No account · No ads or data upload</p>
+<h1>Offline Shopify supplier SKU change audit</h1>
+<p>Compare <strong>three CSV files</strong>: your current Shopify product export, a supplier SKU/cost list,
+and a separately prepared proposed Shopify product CSV. Check SKU matches, added/removed and changed variants,
+and advisory errors before considering an import. Nothing is sent to a server.</p>
+<p lang="ko"><strong>한국어:</strong> 기존 Shopify 상품 CSV, 공급업체 SKU/원가 CSV,
+변경 예정 상품 CSV를 각각 선택하면 브라우저에서 SKU 대응·변경사항·상품 데이터 오류를 비교합니다.
+서버 업로드, 회원가입, 앱 설치, 광고가 없습니다.</p>
+<div class="note" role="note"><strong>Backup before editing.</strong>
+This tool <strong>does not create a safe Shopify import file</strong> or modify your products.
+Shopify updates depend on URL handles and related variant option fields, not only SKU.
+Supplier-joined reports include extra Cost/Supplier columns and
+<strong>must NEVER be imported into Shopify</strong>.
+Keep confidential supplier costs and customer data private.
+Test one or two products using Shopify's official process first.</div>
+<section class="panel" aria-labelledby="worked-example">
+<h2 id="worked-example">Worked example: compare supplier costs and product changes</h2>
+<p>A <strong>fictional</strong> clothing store has two T-shirt variants and one cap.
+The supplier has sent a CSV with unique SKU codes and unit costs, while the
+store has prepared a proposed export with an updated price for one variant
+and lower stock for the cap.</p>
+<p>Try the workflow with three openly licensed, <strong>fictional</strong> sample CSV files:
+<a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/raw/refs/heads/main/fixtures/shopify-current-products.csv" rel="noopener noreferrer">1. current Shopify export</a>,
+<a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/raw/refs/heads/main/fixtures/supplier-price-update.csv" rel="noopener noreferrer">2. supplier SKU list</a>,
+<a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/raw/refs/heads/main/fixtures/shopify-proposed-products.csv" rel="noopener noreferrer">3. proposed export</a>.
+Download or save each file, select it below, and choose <strong>Audit three CSVs locally</strong>.</p>
+<ul>
+<li><strong>TEE-BLK-M:</strong> Price changes from 29.00 to 31.00; the variant remains.</li>
+<li><strong>CAP-WOOL:</strong> Inventory quantity changes from 7 to 6; the variant remains.</li>
+<li><strong>TEE-BLK-L:</strong> Unchanged. All three supplier SKUs match.</li>
+</ul>
+<p>You should receive <strong>six downloadable review files</strong>, including a field-by-field
+before/after diff, supplier match summary, unmatched exceptions, and two advisory
+product-CSV preflight reports. None is an authorized Shopify import command.
+The supplier-joined report contains extra supplier-only fields and MUST NOT
+be used as a Shopify import CSV.</p>
+<p lang="ko"><strong>한국어 예제:</strong> 가상의 의류 매장 상품 3개를 공급업체 SKU로 비교합니다.
+티셔츠 M 사이즈 가격 29.00 → 31.00, 모자 재고 7 → 6으로 변경됩니다.
+위 CSV 예시 세 개를 내려받고 아래 파일 입력에서 각각 선택해 보세요.
+6종 보고서는 검토용이며 Shopify에 자동 반영되지 않습니다.</p>
+<p>For a single-file workflow visit the original
+<a href="https://tools.trendbridged.com/tools/shopify-csv-preflight/" rel="noopener noreferrer">free Shopify CSV checker</a>,
+or see its
+<a href="https://tools.trendbridged.com/tools/join-csv-by-key/" rel="noopener noreferrer">free SKU lookup utility</a>.
+Those original informational pages may show optional, clearly labeled
+Adsterra advertising only with visitor consent; this GitHub Pages open-source
+reference has no advertising at all.</p>
+</section>
+<form id="sku-audit-form" class="panel" novalidate>
+<h2>Select local CSV inputs</h2>
+<label for="current">1. Current Shopify export / 기존 상품 전체 CSV
+<input id="current" type="file" accept=".csv,text/csv" required></label>
+<label for="supplier">2. Supplier SKU list / 공급업체 SKU/원가 CSV
+<input id="supplier" type="file" accept=".csv,text/csv" required></label>
+<label for="proposed">3. Proposed Shopify export / 변경 예정 Shopify CSV
+<input id="proposed" type="file" accept=".csv,text/csv" required></label>
+<p class="muted">Each CSV: under 2.2 MB, UTF-8 preferred. The SKU key must be unique and nonblank
+for comparison. Ambiguous data stops rather than silently guessing.</p>
+<div class="actions"><button id="run" type="submit">Audit three CSVs locally / 로컬 검사</button>
+<button id="clear" type="button">Clear / 초기화</button></div></form>
+<p id="status" role="status" aria-live="polite">Choose three CSVs to begin. No data leaves your browser.</p>
+<section id="results" class="panel" hidden>
+<h2>Review and download six reports / 보고서 6개</h2>
+<p id="summary"></p><ul id="reports"></ul>
+<p><strong>Do not import</strong> supplier-matches-NOT-SHOPIFY-IMPORT.csv;
+the six files are private review reports, not merchant upload instructions.</p></section>
+<section class="panel">
+<h2>Limits, security and official guidance</h2>
+<p>For your privacy this downloadable single HTML includes only the original open-source
+CSV parser, SKU join, CSV diff and Shopify preflight algorithms.
+No network, telemetry, cookies, scripts from other sites, or Shopify API calls.
+Input is limited to protect browser performance; any ambiguous key stops safely.
+Advisory warnings cannot guarantee Shopify import success.</p>
+<p>Shopify explains URL handles, variant option dependencies and CSV imports in its
+<a href="https://help.shopify.com/en/manual/products/import-export/using-csv" rel="noopener noreferrer">official product CSV guide</a>.
+Keep backups and independently review official import requirements.</p>
+</section>
+<h2>Other free browser tools / 다른 무료 도구</h2>
+<p><a href="https://tools.trendbridged.com/tools/join-csv-by-key/" rel="noopener noreferrer">CSV lookup join / 키 병합</a>,
+<a href="https://tools.trendbridged.com/tools/compare-csv-files/" rel="noopener noreferrer">CSV change comparison / 변경 비교</a>,
+<a href="https://tools.trendbridged.com/tools/shopify-csv-preflight/" rel="noopener noreferrer">Shopify product CSV preflight / 상품 검사</a>.
+The original free LocalCSV Lab informational pages may show clearly labeled advertising only after visitor opt-in;
+the actual CSV editors and this offline HTML contain no advertiser script.</p>
+<section class="panel">
+<h2>Source and educational scope</h2>
+<p>All browser scripts on this page are byte-identical to the released MIT-licensed
+<a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit" rel="noopener noreferrer">source repository</a>'s standalone
+offline example. No accounts, backend, subscriptions, telemetry, remote APIs,
+external scripts or advertising. It is an open-source learning example,
+not a commercial hosting service or the official Shopify product importer.
+You can also
+<a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/releases/latest/download/shopify-supplier-threeway-audit.html" rel="noopener noreferrer">download the same offline tool</a>
+and use it with internet disconnected.</p>
+</section>
+<footer><p class="muted">Free, MIT-licensed open-source companion. Not affiliated with Shopify.
+No Adsterra payment, ad impression or revenue claim is made.</p></footer>
+</main><script>const CsvCore=(function(){
+'use strict';
+/* LocalCSV Lab: pure browser/Node data tools. No upload, tracking, or ads. */
+const MAX_INPUT_CHARS = 2_000_000;
+
+function guardInput(text) {
+  if (typeof text !== 'string') throw new TypeError('Input must be text.');
+  if (text.length > MAX_INPUT_CHARS) throw new Error('File exceeds the 2-million-character safety limit.');
+}
+function parseCSV(text, delimiter = ',') {
+  guardInput(text);
+  if (!['\t', ',', ';'].includes(delimiter)) throw new Error('Unsupported delimiter.');
+  text = text.replace(/^\uFEFF/, '');
+  if (text.length === 0) return [];
+  const rows = [];
+  let row = [], cell = '', quoted = false, quoteClosed = false;
+  const endCell = () => { row.push(cell); cell = ''; quoteClosed = false; };
+  const endRow = () => { endCell(); rows.push(row); row = []; };
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { cell += '"'; i++; }
+        else { quoted = false; quoteClosed = true; }
+      } else cell += ch;
+      continue;
+    }
+    if (quoteClosed) {
+      if (ch === delimiter) { endCell(); continue; }
+      if (ch === '\r' || ch === '\n') {
+        endRow();
+        if (ch === '\r' && text[i + 1] === '\n') i++;
+        continue;
+      }
+      if (ch === ' ' || ch === '\t') continue;
+      throw new Error('Unexpected character after a closing quote near position ' + (i + 1));
+    }
+    if (ch === '"' && cell === '') { quoted = true; continue; }
+    if (ch === '"') throw new Error('Unexpected quote near position ' + (i + 1));
+    if (ch === delimiter) { endCell(); continue; }
+    if (ch === '\r' || ch === '\n') {
+      endRow();
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      continue;
+    }
+    cell += ch;
+  }
+  if (quoted) throw new Error('Unclosed quoted CSV field.');
+  if (row.length > 0 || cell !== '' || quoteClosed) endRow();
+  return rows;
+}
+function detectDelimiter(text) {
+  guardInput(text);
+  // Count separators in the first unquoted record only.
+  let quoted = false;
+  const counts = { ',': 0, ';': 0, '\t': 0 };
+  for (let i = 0; i < Math.min(text.length, 5000); i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      if (quoted && text[i + 1] === '"') { i++; continue; }
+      quoted = !quoted;
+    } else if (!quoted && (ch === '\r' || ch === '\n')) break;
+    else if (!quoted && Object.hasOwn(counts, ch)) counts[ch]++;
+  }
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+}
+function stringifyCSV(rows, delimiter = ',', protectSpreadsheet = true) {
+  if (!['\t', ',', ';'].includes(delimiter)) throw new Error('Unsupported delimiter.');
+  return rows.map((row, rowIndex) => row.map(value => {
+    let s = String(value ?? '');
+    // Spreadsheet programs can interpret formulas as executable content.
+    if (protectSpreadsheet && /^[\s]*[=+\-@\uFF1D\uFF0B\uFF0D\uFF20]/.test(s)) s = "'" + s;
+    if (s.includes('"') || s.includes('\n') || s.includes('\r') || s.includes(delimiter)) {
+      s = '"' + s.replaceAll('"', '""') + '"';
+    }
+    return s;
+  }).join(delimiter)).join('\r\n');
+}
+function deduplicateCSV(rows, { column = -1, header = true, caseSensitive = false } = {}) {
+  if (!rows.length) return { rows: [], removed: 0, kept: 0 };
+  if (!Number.isInteger(column) || column < -1 ||
+      (column >= 0 && column >= (rows[0]?.length ?? 0))) {
+    throw new Error('Selected CSV duplicate-match column is not present in the first record.');
+  }
+  const start = header ? 1 : 0;
+  const result = header ? [rows[0]] : [];
+  const seen = new Set();
+  let removed = 0;
+  let blankKeyRows = 0;
+  for (let i = start; i < rows.length; i++) {
+    const row = rows[i];
+    if (column >= 0 && String(row[column] ?? '').trim() === '') {
+      // Blank email/SKU/customer-ID values are not unique identifiers.
+      // Never discard unrelated records just because these keys are blank.
+      blankKeyRows++;
+      result.push(row);
+      continue;
+    }
+    const parts = column >= 0 ? [row[column] ?? ''] : row;
+    const key = JSON.stringify(parts.map(v => caseSensitive ? String(v).trim() : String(v).trim().toLocaleLowerCase('en')));
+    if (seen.has(key)) { removed++; continue; }
+    seen.add(key);
+    result.push(row);
+  }
+  return { rows: result, removed, kept: result.length - start, blankKeyRows };
+}
+function cleanCSV(rows, { trim = true, removeBlank = true, collapseSpaces = false } = {}) {
+  let removed = 0, changed = 0;
+  const result = [];
+  for (const row of rows) {
+    const mapped = row.map(value => {
+      let out = String(value);
+      if (trim) out = out.trim();
+      if (collapseSpaces) out = out.replace(/[ \t]+/g, ' ');
+      if (out !== value) changed++;
+      return out;
+    });
+    if (removeBlank && mapped.every(v => v === '')) { removed++; continue; }
+    result.push(mapped);
+  }
+  return { rows: result, removed, changed };
+}
+function csvToJSON(rows, { header = true } = {}) {
+  if (!rows.length) return [];
+  const colCount = Math.max(...rows.map(r => r.length));
+  let keys = [];
+  if (header) {
+    const counts = new Map();
+    for (let i = 0; i < colCount; i++) {
+      const raw = String(rows[0][i] ?? '').trim() || 'column_' + (i + 1);
+      const number = (counts.get(raw) ?? 0) + 1;
+      counts.set(raw, number);
+      keys.push(number === 1 ? raw : raw + '_' + number);
+    }
+    // Resolve edge cases where a renamed duplicate conflicts with a real column.
+    const used = new Set();
+    keys = keys.map((k) => {
+      let candidate = k, suffix = 2;
+      while (used.has(candidate)) candidate = k + '_' + suffix++;
+      used.add(candidate);
+      return candidate;
+    });
+  } else keys = Array.from({ length: colCount }, (_, i) => 'column_' + (i + 1));
+  return rows.slice(header ? 1 : 0).map(row => {
+    const obj = Object.create(null);
+    keys.forEach((key, i) => { obj[key] = row[i] ?? ''; });
+    return obj;
+  });
+}
+function formatJSON(input, compact = false) {
+  guardInput(input);
+  const parsed = JSON.parse(input);
+  return JSON.stringify(parsed, null, compact ? 0 : 2);
+}
+
+/* Convert a flat array of objects into CSV. Preserves column ordering by the
+   first appearance of each field and converts nested data to JSON strings.
+   Protects both headers and data values against spreadsheet formula execution. */
+function jsonToCSV(text, { delimiter = ',', protectSpreadsheet = true } = {}) {
+  guardInput(text);
+  const records = JSON.parse(text);
+  if (!Array.isArray(records)) throw new Error('JSON must be an array of objects.');
+  if (!records.length) throw new Error('The JSON array contains no records to convert.');
+  if (records.length > 10000) throw new Error('Maximum 10,000 records per conversion.');
+  const keys = [];
+  const known = new Set();
+  for (const [rowIndex, record] of records.entries()) {
+    if (!record || Array.isArray(record) || typeof record !== 'object') {
+      throw new Error('Every array item must be a JSON object. Invalid record at position ' + (rowIndex + 1) + '.');
+    }
+    for (const key of Object.keys(record)) {
+      if (!known.has(key)) {
+        known.add(key);
+        keys.push(key);
+        if (keys.length > 200) throw new Error('Maximum 200 unique fields per conversion.');
+      }
+    }
+  }
+  if (!keys.length) throw new Error('All records are empty objects with no field names.');
+  const safeHeaders = keys.map(key => protectSpreadsheet && /^[\s]*[=+\-@]/.test(key) ? "'" + key : key);
+  const rows = [safeHeaders];
+  for (const record of records) {
+    rows.push(keys.map(key => {
+      const val = Object.hasOwn(record, key) ? record[key] : '';
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'object') return JSON.stringify(val);
+      return String(val);
+    }));
+  }
+  return {
+    text: stringifyCSV(rows, delimiter, protectSpreadsheet),
+    rows,
+    recordCount: records.length,
+    columnCount: keys.length
+  };
+}
+
+return {MAX_INPUT_CHARS,parseCSV,detectDelimiter,stringifyCSV,deduplicateCSV,cleanCSV,csvToJSON,formatJSON,jsonToCSV};
+})();
+const CsvLookup=(function(CsvCore){
+'use strict';
+const {parseCSV,detectDelimiter,stringifyCSV,MAX_INPUT_CHARS}=CsvCore;
+/* LocalCSV Lab — safe browser-only, many-to-one CSV lookup join.
+   This module does not access network, storage, DOM, advertising or analytics. */
+
+const MAX_ROWS=20000;
+const MAX_COLUMNS=200;
+const keyValue=(value,caseSensitive)=>caseSensitive
+  ? String(value??'').trim()
+  : String(value??'').trim().toLocaleLowerCase('en');
+
+function readJoinCSV(text,label='CSV'){
+  if(typeof text!=='string'||!text.trim())throw new Error(label+': paste a CSV or select a file.');
+  if(text.length>MAX_INPUT_CHARS)throw new Error(label+': maximum 2 million characters.');
+  const delimiter=detectDelimiter(text);
+  const table=parseCSV(text,delimiter);
+  if(!table.length||table[0].length<2)throw new Error(label+': include a header row with two or more named columns.');
+  if(table[0].length>MAX_COLUMNS)throw new Error(label+': maximum 200 columns.');
+  const headers=table[0].map(h=>String(h).trim());
+  if(headers.some(h=>!h))throw new Error(label+': all header columns must be named.');
+  const known=new Set();
+  for(const h of headers){
+    const normalized=h.toLocaleLowerCase('en');
+    if(known.has(normalized))throw new Error(label+': duplicated column name '+h+'. Rename the duplicate.');
+    known.add(normalized);
+  }
+  const records=[];
+  let blankLines=0;
+  for(let i=1;i<table.length;i++){
+    const row=table[i];
+    if(row.every(c=>String(c).trim()==='')){blankLines++;continue;}
+    if(row.length!==headers.length)throw new Error(label+': row '+(i+1)+' has '+row.length+' cells; expected '+headers.length+'.');
+    records.push({values:row,rowNumber:i+1});
+    if(records.length>MAX_ROWS)throw new Error(label+': maximum 20,000 rows.');
+  }
+  if(!records.length)throw new Error(label+': no data rows.');
+  return{headers,records,delimiter,blankLines};
+}
+function suggestLookupKeys(primaryText,lookupText){
+  const first=readJoinCSV(primaryText,'First CSV');
+  const second=readJoinCSV(lookupText,'Lookup CSV');
+  const candidates=['sku','id','product id','product_id','customer id','customer_id','email','handle','order id','order_id','key'];
+  const firstKey=candidates.map(x=>first.headers.find(h=>h.toLocaleLowerCase('en')===x)).find(Boolean)||first.headers[0];
+  const secondKey=second.headers.includes(firstKey)
+    ?firstKey
+    :second.headers.find(h=>h.toLocaleLowerCase('en')===firstKey.toLocaleLowerCase('en')) ||
+       candidates.map(x=>second.headers.find(h=>h.toLocaleLowerCase('en')===x)).find(Boolean) ||
+       second.headers[0];
+  return{firstHeaders:first.headers,lookupHeaders:second.headers,firstKey,lookupKey:secondKey};
+}
+function makeUniqueNames(firstHeaders,secondHeaders,keyIndex){
+  const names=[...firstHeaders];
+  const used=new Set(firstHeaders.map(h=>h.toLocaleLowerCase('en')));
+  const append=[];
+  for(let i=0;i<secondHeaders.length;i++){
+    if(i===keyIndex)continue;
+    const original=secondHeaders[i];
+    let chosen=original;
+    if(used.has(chosen.toLocaleLowerCase('en'))){
+      chosen=original+'_lookup';
+      let num=2;
+      while(used.has(chosen.toLocaleLowerCase('en')))chosen=original+'_lookup_'+num++;
+    }
+    names.push(chosen);
+    used.add(chosen.toLocaleLowerCase('en'));
+    append.push({source:i,sourceName:original,outputName:chosen});
+  }
+  if(names.length>MAX_COLUMNS)throw new Error('Output would exceed 200 columns. Remove unneeded fields.');
+  return{headers:names,appended:append};
+}
+function joinCSVByKey(primaryText,lookupText,{
+  primaryKey,lookupKey,caseSensitive=true,mode='left'
+}={}){
+  if(!['left','inner'].includes(mode))throw new Error('Join mode must be left or inner.');
+  const first=readJoinCSV(primaryText,'First CSV');
+  const second=readJoinCSV(lookupText,'Lookup CSV');
+  const aKey=primaryKey||first.headers[0];
+  const bKey=lookupKey||second.headers[0];
+  const aPos=first.headers.indexOf(aKey),bPos=second.headers.indexOf(bKey);
+  if(aPos===-1)throw new Error('The first CSV does not contain the selected key: '+aKey);
+  if(bPos===-1)throw new Error('The lookup CSV does not contain the selected key: '+bKey);
+  const lookup=new Map();
+  for(const row of second.records){
+    const normalized=keyValue(row.values[bPos],caseSensitive);
+    if(!normalized)throw new Error('Lookup CSV: blank key in row '+row.rowNumber+'. Every lookup key must identify one record.');
+    if(lookup.has(normalized)){
+      const old=lookup.get(normalized);
+      throw new Error('Lookup CSV: duplicate key in rows '+old.rowNumber+' and '+row.rowNumber+'. Resolve duplicates instead of guessing.');
+    }
+    lookup.set(normalized,row);
+  }
+  const fields=makeUniqueNames(first.headers,second.headers,bPos);
+  let matched=0,unmatched=0,blankPrimaryKeys=0,duplicatesInPrimary=0;
+  const usedLookup=new Set(),seenLeft=new Set(),results=[fields.headers];
+  const unmatchedRecords=[['csv_row',aKey,'reason']];
+  for(const row of first.records){
+    const original=String(row.values[aPos]??'');
+    const normalized=keyValue(original,caseSensitive);
+    if(!normalized)blankPrimaryKeys++;
+    else if(seenLeft.has(normalized))duplicatesInPrimary++;
+    else seenLeft.add(normalized);
+    const found=normalized?lookup.get(normalized):null;
+    if(found){
+      matched++;
+      usedLookup.add(normalized);
+      results.push([...row.values,...fields.appended.map(field=>found.values[field.source])]);
+    }else{
+      unmatched++;
+      unmatchedRecords.push([String(row.rowNumber),original,!normalized?'blank key':'not found in lookup']);
+      if(mode==='left'){
+        results.push([...row.values,...fields.appended.map(()=>'')]);
+      }
+    }
+  }
+  const unusedLookup=second.records.length-usedLookup.size;
+  const metrics={
+    primaryRows:first.records.length,lookupRows:second.records.length,
+    matched,unmatched,outputRows:results.length-1,
+    appendedColumns:fields.appended.length,
+    renamedColumns:fields.appended.filter(x=>x.sourceName!==x.outputName).length,
+    unusedLookup,blankPrimaryKeys,duplicatesInPrimary,
+    ignoredBlankLines:first.blankLines+second.blankLines,
+    mode
+  };
+  const notes=[
+    'The first CSV remains the primary table. Rows are kept in the same original order.',
+    'Lookup CSV keys must be unique and nonblank. Duplicate keys are rejected to avoid accidental row multiplication.',
+    'Repeated keys in the first CSV are allowed: each matching row gets the lookup values.',
+    'Leading/trailing spaces on keys are ignored, while all original cell text is preserved.',
+    'Blank or missing keys in the first CSV never match; left mode keeps them and inner mode excludes them.',
+    'Columns found in both files get a _lookup suffix instead of overwriting the first CSV.'
+  ];
+  return{
+    csv:'\uFEFF'+stringifyCSV(results,',',true),
+    unmatchedCSV:'\uFEFF'+stringifyCSV(unmatchedRecords,',',true),
+    preview:results.slice(0,Math.min(11,results.length)),
+    unmatchedPreview:unmatchedRecords.slice(0,21),
+    renamed:fields.appended.filter(x=>x.sourceName!==x.outputName),
+    metrics,notes,
+    primaryKey:aKey,lookupKey:bKey,
+    outputHeaders:fields.headers
+  };
+}
+
+return {readJoinCSV,suggestLookupKeys,joinCSVByKey};
+})(CsvCore);
+const CsvDiff=(function(CsvCore){
+'use strict';
+const {parseCSV,detectDelimiter,stringifyCSV,MAX_INPUT_CHARS}=CsvCore;
+/* Compare two local CSV exports by a selected unique business key.
+ * Pure function: no network, no storage, no ad interactions. */
+
+const MAX_RECORDS = 20000;
+const MAX_COLUMNS = 200;
+const MAX_CHANGES = 40000;
+const HEADERS = ['action','key','field','before','after','previous_csv_row','current_csv_row','note'];
+
+function readCSVForComparison(text, label = 'CSV') {
+  if (typeof text !== 'string') throw new Error(label + ': CSV input must be text.');
+  if (text.length > MAX_INPUT_CHARS) throw new Error(label + ': maximum size is 2 million characters.');
+  if (!text.trim()) throw new Error(label + ': paste a CSV or choose a file.');
+  const delimiter = detectDelimiter(text);
+  const rows = parseCSV(text, delimiter);
+  if (!rows.length) throw new Error(label + ': no CSV header row.');
+  const headers = rows[0].map(cell => cell.trim());
+  if (!headers.length || headers.some(name => !name)) throw new Error(label + ': every header must have a name.');
+  if (headers.length > MAX_COLUMNS) throw new Error(label + ': more than 200 columns.');
+  if (new Set(headers).size !== headers.length) throw new Error(label + ': repeated column headings; rename duplicates first.');
+  const records = [];
+  let skippedBlank = 0;
+  rows.slice(1).forEach((cells, index) => {
+    if (cells.length === 1 && !cells[0].trim()) { skippedBlank++; return; }
+    if (cells.length !== headers.length) {
+      throw new Error(label + ': CSV row ' + (index + 2) + ' contains ' + cells.length + ' fields; expected ' + headers.length + '.');
+    }
+    records.push({ rowNumber: index + 2, fields: Object.fromEntries(headers.map((name, i) => [name, cells[i]])) });
+  });
+  if (records.length > MAX_RECORDS) throw new Error(label + ': more than 20,000 data rows.');
+  return { headers, records, delimiter, skippedBlank };
+}
+
+function commonCSVKeys(previousText, currentText) {
+  const previous = readCSVForComparison(previousText, 'Previous');
+  const current = readCSVForComparison(currentText, 'Current');
+  const shared = previous.headers.filter(key => current.headers.includes(key));
+  if (!shared.length) throw new Error('The two CSV files have no exactly matching header name.');
+  const priority = ['id','sku','email','order id','order_id','handle','customer id'];
+  const suggested = priority.map(candidate => shared.find(x => x.toLowerCase() === candidate)).find(Boolean) || shared[0];
+  return { shared, suggested };
+}
+
+function indexRows(dataset, field, caseSensitive, label) {
+  const index = new Map();
+  const normalize = value => caseSensitive ? String(value).trim() : String(value).trim().toLocaleLowerCase('en');
+  for (const record of dataset.records) {
+    const key = normalize(record.fields[field]);
+    if (!key) throw new Error(label + ': empty key in CSV row ' + record.rowNumber + '. Fill missing keys first.');
+    if (index.has(key)) {
+      throw new Error(label + ': duplicate key at CSV rows ' + index.get(key).rowNumber + ' and ' + record.rowNumber + '. Select a genuinely unique key.');
+    }
+    index.set(key, record);
+  }
+  return index;
+}
+
+function compareCSVExports(previousText, currentText, { key, caseSensitive = true } = {}) {
+  const previous = readCSVForComparison(previousText, 'Previous');
+  const current = readCSVForComparison(currentText, 'Current');
+  const shared = previous.headers.filter(name => current.headers.includes(name));
+  if (!shared.length) throw new Error('No matching column headings between the files.');
+  const chosen = key ?? commonCSVKeys(previousText, currentText).suggested;
+  if (!shared.includes(chosen)) throw new Error('Choose a key column found in both CSV files.');
+  const before = indexRows(previous, chosen, caseSensitive, 'Previous');
+  const after = indexRows(current, chosen, caseSensitive, 'Current');
+  const beforeNames = new Set(previous.headers);
+  const afterNames = new Set(current.headers);
+  const allNames = [...previous.headers, ...current.headers.filter(name => !beforeNames.has(name))];
+  const onlyPrevious = previous.headers.filter(name => !afterNames.has(name));
+  const onlyCurrent = current.headers.filter(name => !beforeNames.has(name));
+  const audit = [HEADERS];
+  const metrics = {
+    previous: previous.records.length, current: current.records.length,
+    added: 0, removed: 0, changed: 0, unchanged: 0, changedCells: 0,
+    beforeOnlyColumns: onlyPrevious, afterOnlyColumns: onlyCurrent,
+    ignoredBlankRows: previous.skippedBlank + current.skippedBlank
+  };
+  const append = (action, originalKey, field, oldVal, newVal, oldRow, newRow, note = '') => {
+    if (audit.length > MAX_CHANGES) throw new Error('More than 40,000 field changes. Split the exports into smaller files.');
+    audit.push([action, originalKey, field, oldVal, newVal, oldRow || '', newRow || '', note]);
+  };
+  for (const [normalizedKey, record] of after) {
+    const old = before.get(normalizedKey);
+    const valueKey = record.fields[chosen];
+    if (!old) {
+      metrics.added++;
+      for (const field of current.headers) {
+        append('ADDED', valueKey, field, '', record.fields[field], '', record.rowNumber, 'new row');
+      }
+      continue;
+    }
+    let updates = 0;
+    for (const field of allNames) {
+      const oldValue = beforeNames.has(field) ? old.fields[field] : '';
+      const newValue = afterNames.has(field) ? record.fields[field] : '';
+      const schemaChanged = !beforeNames.has(field) || !afterNames.has(field);
+      if (schemaChanged || oldValue !== newValue) {
+        const note = schemaChanged ? (beforeNames.has(field) ? 'column only in previous CSV' : 'column only in current CSV') : '';
+        append('CHANGED', valueKey, field, oldValue, newValue, old.rowNumber, record.rowNumber, note);
+        updates++;
+      }
+    }
+    if (updates) { metrics.changed++; metrics.changedCells += updates; }
+    else metrics.unchanged++;
+  }
+  for (const [normalizedKey, record] of before) {
+    if (after.has(normalizedKey)) continue;
+    metrics.removed++;
+    for (const field of previous.headers) {
+      append('REMOVED', record.fields[chosen], field, record.fields[field], '', record.rowNumber, '', 'missing in current CSV');
+    }
+  }
+  const warnings = [];
+  if (onlyPrevious.length) warnings.push('Previous-only columns: ' + onlyPrevious.join(', ') + '. Column differences count as changes.');
+  if (onlyCurrent.length) warnings.push('Current-only columns: ' + onlyCurrent.join(', ') + '. Column differences count as changes.');
+  if (metrics.ignoredBlankRows) warnings.push('Ignored ' + metrics.ignoredBlankRows + ' fully blank CSV lines.');
+  warnings.push('Keys are trimmed for matching; other cell values are compared exactly, including spaces and letter case.');
+  warnings.push('A matching key identifies one record only. Duplicate or blank keys are rejected instead of guessed.');
+  const csv = '\uFEFF' + stringifyCSV(audit, ',', true);
+  return { csv, metrics, warnings, previewRows: audit.slice(0, 13), key: chosen, reportLines: audit.length - 1 };
+}
+
+return {readCSVForComparison,commonCSVKeys,compareCSVExports};
+})(CsvCore);
+const Shopify=(function(CsvCore){
+'use strict';
+const {parseCSV,stringifyCSV,MAX_INPUT_CHARS}=CsvCore;
+/* LocalCSV Lab — pure Shopify product CSV preflight diagnostics.
+   Reads text only. Does not send data or perform a Shopify import. */
+
+const MAX_ROWS=20000, MAX_COLUMNS=200, MAX_FINDINGS=3000;
+const HEADER=['severity','csv_row','handle','sku','field','problem','suggested_review'];
+const FIELD_ALIASES={
+ handle:['URL handle','Handle'],
+ title:['Title'],
+ sku:['SKU','Variant SKU'],
+ price:['Price','Variant Price'],
+ compare:['Compare-at price','Variant Compare-at Price'],
+ tracker:['Inventory tracker','Variant Inventory Tracker'],
+ quantity:['Inventory quantity','Variant Inventory Qty'],
+ image:['Product image URL','Image Src'],
+ position:['Image position','Image Position'],
+ opt1n:['Option1 name','Option1 Name'],
+ opt1v:['Option1 value','Option1 Value'],
+ opt2n:['Option2 name','Option2 Name'],
+ opt2v:['Option2 value','Option2 Value'],
+ opt3n:['Option3 name','Option3 Name'],
+ opt3v:['Option3 value','Option3 Value']
+};
+
+function normalize(name) {return name.trim().toLowerCase();}
+function currency(text) {
+  const value=String(text??'').trim();
+  if(!value)return null;
+  if(!/^\d+(?:\.\d+)?$/.test(value))return NaN;
+  return Number(value);
+}
+function resolveHeaders(headers) {
+  const index=new Map();
+  for(const [i,header] of headers.entries()) {
+    const normalized=normalize(header);
+    if(!normalized)throw new Error('Every CSV column header must be named.');
+    if(index.has(normalized))throw new Error('Repeated header: '+header+' (column '+(i+1)+'). Rename it first.');
+    index.set(normalized,i);
+  }
+  const field={};
+  for(const [role,names] of Object.entries(FIELD_ALIASES)) {
+    const matched=[...new Set(names.map(name=>normalize(name)).filter(name=>index.has(name)))];
+    if(matched.length>1)throw new Error('Conflicting old and new Shopify columns for '+role+'. Keep one version.');
+    field[role]=matched.length ? index.get(matched[0]) : -1;
+  }
+  return field;
+}
+function inspectShopifyProductCSV(csvText,{mode='update'}={}) {
+  if(mode!=='create'&&mode!=='update')throw new Error('Choose create or update mode.');
+  if(typeof csvText!=='string'||!csvText.trim())throw new Error('Paste or load the product CSV first.');
+  if(csvText.length>MAX_INPUT_CHARS)throw new Error('CSV exceeds the 2 million character limit.');
+  // Shopify documents comma separated product imports. Do not auto-detect semicolon here.
+  const rows=parseCSV(csvText,',');
+  if(rows.length<2)throw new Error('CSV must contain a header row and at least one data row.');
+  const headers=rows[0].map(x=>x.trim().replace(/^\uFEFF/,''));
+  if(headers.length>MAX_COLUMNS)throw new Error('More than 200 columns; split the file before validating.');
+  const field=resolveHeaders(headers);
+  if(field.title===-1)throw new Error('Required product column missing: Title.');
+  if(mode==='update'&&field.handle===-1)throw new Error('Product update imports require a URL handle or legacy Handle column.');
+  if(rows.length-1>MAX_ROWS)throw new Error('More than 20,000 rows; split the export before checking.');
+  const findings=[];
+  let countErrors=0,countWarnings=0,countInfo=0,skipped=0,variantRows=0;
+  const handles=new Map(), skuRows=new Map(), variantSignatures=new Map(), imagePositions=new Map();
+  const add=(severity,row,handle,sku,sourceField,problem,review)=>{
+    if(severity==='ERROR')countErrors++;
+    else if(severity==='WARNING')countWarnings++;
+    else countInfo++;
+    if(findings.length<MAX_FINDINGS)findings.push([severity,String(row||''),handle||'',sku||'',sourceField||'',problem,review]);
+  };
+  const column=role=>field[role]===-1?'':headers[field[role]];
+  const has=role=>field[role]!==-1;
+  const get=(cells,role)=>has(role)?String(cells[field[role]]??'').trim():'';
+  const importantVariantCols=['sku','price','compare','tracker','quantity'].filter(has);
+  const hasVariantFields=importantVariantCols.length>0;
+  if(mode==='update'&&hasVariantFields&&(!has('opt1n')||!has('opt1v'))){
+    add('ERROR',1,'','',column('sku')||column('price')||column('quantity'),
+        'Variant-related updates need Option1 name and Option1 value columns.',
+        'Export a full product CSV and preserve both option columns before updating variants.');
+  }
+  if(mode==='create'&&hasVariantFields&&(!has('opt1n')||!has('opt1v'))){
+    add('WARNING',1,'','',column('sku')||column('price'),
+        'Variant-related fields found without both Option1 columns.',
+        'Confirm whether each product is simple or has variants before importing.');
+  }
+  for(let i=1;i<rows.length;i++){
+    const cells=rows[i], number=i+1;
+    if(cells.length===1 && !cells[0].trim()){skipped++;continue;}
+    if(cells.length!==headers.length){
+      add('ERROR',number,'','','CSV columns',
+          'Field count '+cells.length+' does not match '+headers.length+' header columns.',
+          'Inspect quoting, embedded commas and field delimiters in the source row.');
+      continue;
+    }
+    const handle=get(cells,'handle'),sku=get(cells,'sku'),title=get(cells,'title');
+    const image=get(cells,'image');
+    const optionValues=['opt1v','opt2v','opt3v'].map(role=>get(cells,role));
+    const hasOptions=optionValues.some(Boolean);
+    const variantFieldsFilled=importantVariantCols.some(role=>get(cells,role)!=='')||hasOptions;
+    const imageOnly=!!(handle&&image&&!title&&!variantFieldsFilled);
+    if(variantFieldsFilled)variantRows++;
+    if(!handle){
+      if(mode==='update'||image||variantFieldsFilled){
+        add('ERROR',number,'',sku,column('handle')||'URL handle',
+            'Missing product handle on a variant, image or update row.',
+            'Use the exact URL handle from a current Shopify product export.');
+      }else if(mode==='create'&&title){
+        add('INFO',number,'',sku,'URL handle',
+            'Title-only product: Shopify can generate a handle on new single-product imports.',
+            'If adding variants or additional images, include a stable URL handle.');
+      }
+    } else {
+      if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(handle)){
+        add('WARNING',number,handle,sku,column('handle'),
+            'Handle includes characters outside lowercase letters, digits and single hyphens.',
+            'Review the handle before importing; use a stable URL-safe value.');
+      }
+      const group=handles.get(handle)||{rows:[],titles:0};
+      group.rows.push(number);
+      if(title)group.titles++;
+      handles.set(handle,group);
+    }
+    if(imageOnly) {
+      // Shopify permits image-only rows with the same handle and blank title / variant values.
+    } else if(variantFieldsFilled) {
+      for(let j=1;j<=3;j++){
+        const name=get(cells,'opt'+j+'n'),value=get(cells,'opt'+j+'v');
+        if(name&&!value) {
+          add('WARNING',number,handle,sku,column('opt'+j+'v')||('Option'+j+' value'),
+              'Option'+j+' name is present but its value is blank on this variant row.',
+              'Check that the variant is identified by the intended option value.');
+        } else if(value&&!name) {
+          add('WARNING',number,handle,sku,column('opt'+j+'n')||('Option'+j+' name'),
+              'Option'+j+' value is present without its option name.',
+              'Include the matching option name or review this variant row.');
+        }
+      }
+      if(handle&&has('opt1v')&&optionValues[0]){
+        const signature=JSON.stringify([handle,...optionValues.map(x=>x.toLowerCase())]);
+        if(variantSignatures.has(signature)){
+          add('WARNING',number,handle,sku,column('opt1v'),
+              'Possible repeated variant option combination; previously seen at row '+variantSignatures.get(signature)+'.',
+              'Verify distinct variant option combinations within the same product.');
+        }else variantSignatures.set(signature,number);
+      }
+    }
+    if(sku){
+      if(skuRows.has(sku)){
+        add('WARNING',number,handle,sku,column('sku'),
+            'SKU also appears at CSV row '+skuRows.get(sku)+'.',
+            'Check whether the same SKU was unintentionally assigned to multiple variants.');
+      } else skuRows.set(sku,number);
+    }
+    if(has('price')&&get(cells,'price')){
+      const value=currency(get(cells,'price'));
+      if(!Number.isFinite(value)){
+        add('ERROR',number,handle,sku,column('price'),
+            'Price is not a plain nonnegative decimal number.',
+            'Remove currency symbols and thousand separators; use e.g. 19.99.');
+      }
+    }
+    if(has('compare')&&get(cells,'compare')){
+      const list=currency(get(cells,'compare')),sale=currency(get(cells,'price'));
+      if(!Number.isFinite(list)){
+        add('ERROR',number,handle,sku,column('compare'),
+            'Compare-at price is not a plain nonnegative decimal number.',
+            'Use a plain price such as 29.99 or leave the field empty.');
+      }else if(Number.isFinite(sale)&&list<=sale) {
+        add('WARNING',number,handle,sku,column('compare'),
+            'Compare-at price is not greater than the regular price.',
+            'Review the intended discount; a compare-at price usually exceeds the price.');
+      }
+    }
+    if(has('quantity')&&get(cells,'quantity')){
+      const quantity=get(cells,'quantity');
+      if(!/^-?\d+$/.test(quantity)){
+        add('ERROR',number,handle,sku,column('quantity'),
+            'Inventory quantity is not an integer.',
+            'Use a whole number and confirm your Shopify inventory location setup.');
+      }
+      if(!get(cells,'tracker')) {
+        add('WARNING',number,handle,sku,column('quantity'),
+            'Quantity is supplied without an inventory tracker.',
+            'Check if the product should track inventory and whether this file is appropriate for your store.');
+      }
+    } else if(get(cells,'tracker')&&!get(cells,'quantity')&&has('quantity')){
+      add('WARNING',number,handle,sku,column('quantity'),
+          'Inventory tracker is set, but the quantity cell is blank.',
+          'Verify required quantities and multi-location inventory import requirements.');
+    }
+    if(image){
+      let parsed;
+      try{parsed=new URL(image);}catch{/* invalid URL */}
+      if(!parsed||!['https:','http:'].includes(parsed.protocol)||!parsed.hostname){
+        add('ERROR',number,handle,sku,column('image'),
+            'Image URL is not an absolute HTTP(S) URL.',
+            'Use an accessible absolute image URL; local file paths are not supported.');
+      }else if(parsed.protocol!=='https:'){
+        add('WARNING',number,handle,sku,column('image'),
+            'Image URL is HTTP rather than HTTPS.',
+            'Prefer a publicly accessible HTTPS image URL before import.');
+      }else if(/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(parsed.hostname)){
+        add('WARNING',number,handle,sku,column('image'),
+            'Image host appears private or local and might not be reachable by Shopify.',
+            'Use a public HTTPS address; this checker never fetches image URLs.');
+      }
+      if(handle&&has('position')&&get(cells,'position')){
+        const pos=get(cells,'position');
+        if(!/^[1-9]\d*$/.test(pos)){
+          add('WARNING',number,handle,sku,column('position'),
+              'Image position should be a positive whole number.',
+              'Check the order of images for this product.');
+        }else{
+          const signature=handle+'|'+pos;
+          if(imagePositions.has(signature)){
+            add('WARNING',number,handle,sku,column('position'),
+                'Image position duplicates row '+imagePositions.get(signature)+' for this handle.',
+                'Review the order of product images before importing.');
+          }else imagePositions.set(signature,number);
+        }
+      }
+    }
+  }
+  for(const [handle,group] of handles){
+    if(group.titles===0){
+      add('WARNING',group.rows[0],handle,'',column('title'),
+          'No nonempty Title value appears for this handle in the submitted file.',
+          'For a product create/update import, verify the parent product row and title.');
+    }
+  }
+  const count=countErrors+countWarnings+countInfo;
+  const metrics={totalRows:rows.length-1-skipped,products:handles.size,variantRows,
+    errors:countErrors,warnings:countWarnings,info:countInfo,issueCount:count,
+    shown:findings.length,truncated:Math.max(0,count-findings.length),
+    blankRows:skipped,mode};
+  const notices=[
+    'This is a preflight diagnostic, not Shopify import validation or a guarantee.',
+    'Existing products may be overwritten or variants changed when dependent columns are missing; always back up and test one or two products.',
+    'No image URLs were fetched and no Shopify account was accessed.',
+    'A WARNING is a review item, not necessarily a Shopify upload error.'
+  ];
+  const exportRows=[HEADER,...findings];
+  // Spreadsheet programs can execute data cells as formulas. Protect every report data row.
+  const csv='\uFEFF'+stringifyCSV(exportRows,',',true);
+  return{metrics,findings,notices,csv,headers,columns:field};
+}
+
+return {inspectShopifyProductCSV};
+})(CsvCore);
+const {joinCSVByKey}=CsvLookup;
+const {compareCSVExports}=CsvDiff;
+const {inspectShopifyProductCSV}=Shopify;
+function makeReports({current, supplier, proposed}) {
+  // All input validation takes place BEFORE touching the output filesystem.
+  // Ambiguous supplier duplicates and CSV comparison keys cause an error.
+  const before = inspectShopifyProductCSV(current, {mode: "update"});
+  const after = inspectShopifyProductCSV(proposed, {mode: "update"});
+  const joined = joinCSVByKey(current, supplier, {
+    primaryKey: "SKU", lookupKey: "SKU", mode: "left", caseSensitive: true,
+  });
+  const diff = compareCSVExports(current, proposed, {
+    key: "SKU", caseSensitive: true,
+  });
+  const manualReviewRequired = Boolean(
+    before.metrics.errors || after.metrics.errors ||
+    before.metrics.warnings || after.metrics.warnings ||
+    joined.metrics.unmatched || joined.metrics.blankPrimaryKeys ||
+    joined.metrics.duplicatesInPrimary ||
+    diff.metrics.added || diff.metrics.removed
+  );
+  const summary = {
+    tool: "LocalCSV Lab — offline supplier SKU audit",
+    type: "LOCAL_REPORT_NOT_SHOPIFY_IMPORT",
+    shopifyAccountAccessed: false,
+    dataUploaded: false,
+    advertisingLoaded: false,
+    supplierJoin: joined.metrics,
+    changedProductRecords: diff.metrics,
+    existingShopifyPreflight: before.metrics,
+    proposedShopifyPreflight: after.metrics,
+    manualReviewRequired,
+    outputCannotBeImportedDirectlyIntoShopify: true,
+    important: [
+      "This is not official Shopify validation or a guaranteed safe import.",
+      "Shopify product updates are based on URL handle and dependent variant columns, not solely SKU.",
+      "The supplier-joined analysis has extra Cost/Supplier fields; NEVER import it directly into Shopify.",
+      "Keep the original export; review duplicate/blank SKU exceptions and changed variants.",
+      "Supplier prices are confidential: keep generated reports local.",
+      "Consult Shopify's official documentation and test one or two products first.",
+    ],
+    relatedFreeTools: {
+      skuJoin: "https://tools.trendbridged.com/tools/join-csv-by-key/",
+      csvComparison: "https://tools.trendbridged.com/tools/compare-csv-files/",
+      shopifyPreflight: "https://tools.trendbridged.com/tools/shopify-csv-preflight/",
+    },
+  };
+  return {
+    summary,
+    files: new Map([
+      ["supplier-matches-NOT-SHOPIFY-IMPORT.csv", joined.csv],
+      ["unmatched-skus.csv", joined.unmatchedCSV],
+      ["proposed-changes.csv", diff.csv],
+      ["preflight-current.csv", before.csv],
+      ["preflight-proposed.csv", after.csv],
+      ["summary.json", JSON.stringify(summary, null, 2) + "\n"],
+    ]),
+  };
+}
+
+
+(function(){
+  "use strict";
+  const form=document.getElementById("sku-audit-form");
+  const run=document.getElementById("run");
+  const status=document.getElementById("status");
+  const results=document.getElementById("results");
+  const summary=document.getElementById("summary");
+  const reports=document.getElementById("reports");
+  const clear=document.getElementById("clear");
+  let urls=[];
+
+  function resetResults(){
+    for(const url of urls){ URL.revokeObjectURL(url); }
+    urls=[];
+    reports.replaceChildren();
+    summary.textContent="";
+    results.hidden=true;
+  }
+
+  form.addEventListener("submit",async function(event){
+    event.preventDefault();
+    resetResults();
+    const elements=["current","supplier","proposed"];
+    const files=elements.map(id=>document.getElementById(id).files[0]);
+    if(files.some(file=>!file)){
+      status.textContent="Choose all three CSV files. / CSV 파일 3개를 모두 선택하세요.";
+      return;
+    }
+    if(files.some(file=>file.size>2200000)){
+      status.textContent="Each CSV must be under 2.2 MB. / 각 파일은 2.2 MB 미만이어야 합니다.";
+      return;
+    }
+    run.disabled=true;
+    status.textContent="Checking locally. Nothing is uploaded. / 브라우저 내부에서 검사 중입니다.";
+    try{
+      const texts=await Promise.all(files.map(file=>file.text()));
+      const result=makeReports({
+        current:texts[0], supplier:texts[1], proposed:texts[2]
+      });
+      const m=result.summary;
+      summary.textContent=
+        "Supplier matches: "+m.supplierJoin.matched+
+        " | Unmatched: "+m.supplierJoin.unmatched+
+        " | Changed records: "+m.changedProductRecords.changed+
+        " | Added/removed: "+(m.changedProductRecords.added+m.changedProductRecords.removed)+
+        " | Manual review: "+(m.manualReviewRequired?"YES":"NO")+
+        ". This is an AUDIT, not an import.";
+      for(const [name,data] of result.files){
+        const link=document.createElement("a");
+        const item=document.createElement("li");
+        const type=name.endsWith(".json")?"application/json;charset=utf-8":"text/csv;charset=utf-8";
+        const url=URL.createObjectURL(new Blob([data],{type}));
+        urls.push(url);
+        link.href=url;
+        link.download=name;
+        link.textContent="Download "+name;
+        item.append(link);
+        reports.append(item);
+      }
+      results.hidden=false;
+      status.textContent="Six local reports prepared. Never import the joined supplier CSV into Shopify.";
+    }catch(error){
+      resetResults();
+      status.textContent="Audit stopped safely: "+String(error&&error.message?error.message:error);
+    }finally{
+      run.disabled=false;
+    }
+  });
+
+  clear.addEventListener("click",function(){
+    form.reset();
+    resetResults();
+    status.textContent="File selections and generated links cleared. / 입력 및 결과를 지웠습니다.";
+  });
+  window.addEventListener("beforeunload",resetResults,{once:true});
+})();
+</script></body></html>
