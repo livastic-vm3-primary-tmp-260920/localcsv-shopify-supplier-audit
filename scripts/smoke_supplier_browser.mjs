@@ -29,7 +29,7 @@ try{
   await sleep(100);
  }
  if(!port)throw Error("Chrome did not start a local CDP listener");
- const target=pathToFileURL(process.argv[2]?path.resolve(process.argv[2]):path.join(ROOT,"offline/shopify-supplier-threeway-audit.html")).href;
+ const target=process.argv[2]?.startsWith("https://")?process.argv[2]:pathToFileURL(process.argv[2]?path.resolve(process.argv[2]):path.join(ROOT,"offline/shopify-supplier-threeway-audit.html")).href;
  const created=await fetch("http://127.0.0.1:"+port+"/json/new?"+encodeURIComponent(target),{method:"PUT"});
  if(!created.ok)throw Error("Cannot open local file in isolated Chrome");
  const tab=await created.json();
@@ -65,13 +65,20 @@ try{
  });
  await cdp("Runtime.enable");
  await cdp("DOM.enable");
- let doc={};
- for(let i=0;i<30;i++){
-   doc=await cdp("DOM.getDocument",{depth:1});
-   const ready=await cdp("Runtime.evaluate",{expression:"document.readyState",returnByValue:true});
-   if(ready.result.value==="complete")break;
-   await sleep(100);
+ let loaded=false;
+ for(let i=0;i<80;i++){
+   const read=await cdp("Runtime.evaluate",{
+     expression:"JSON.stringify({url:location.href,ready:document.readyState,input:!!document.getElementById('current')})",
+     returnByValue:true
+   });
+   if(read.result?.value){
+     const state=JSON.parse(read.result.value);
+     if(state.input && state.ready==="complete" && state.url===target){loaded=true;break;}
+   }
+   await sleep(125);
  }
+ assert.ok(loaded,"Target page did not finish navigating with all inputs");
+ const doc=await cdp("DOM.getDocument",{depth:1});
  const inputs={
    current:"fixtures/shopify-current-products.csv",
    supplier:"fixtures/supplier-price-update.csv",
@@ -84,6 +91,7 @@ try{
      nodeId:found.nodeId,files:[path.join(ROOT,relative)]
    });
  }
+ const beforeAuditRequestCount=requested;
  await cdp("Runtime.evaluate",{
    expression:"document.getElementById('run').click()",
    returnByValue:true
@@ -103,8 +111,8 @@ try{
  assert.match(observed.summary,/Supplier matches: 3/);
  assert.match(observed.summary,/Changed records: 2/);
  assert.ok(observed.reports.includes("supplier-matches-NOT-SHOPIFY-IMPORT.csv"));
- assert.equal(requested,0,"Offline HTML tried to make network requests");
- console.log("CHROME_END_TO_END_PASS",JSON.stringify({reports:6,summary:observed.summary,networkRequests:requested}));
+ assert.equal(requested,beforeAuditRequestCount,"The CSV audit triggered network requests");
+ console.log("CHROME_END_TO_END_PASS",JSON.stringify({reports:6,summary:observed.summary,networkRequestsDuringAudit:requested-beforeAuditRequestCount}));
 }finally{
  try{socket?.close();}catch{}
  chrome.kill("SIGTERM");
