@@ -26,13 +26,19 @@ const HELP = [
   "    --proposed fixtures/shopify-proposed-products.csv \\",
   "    --out ./reports-example",
   "",
+  "TWO-FILE option (no proposed Shopify export yet):",
+  "  node bin/localcsv-audit.mjs --current shopify.csv",
+  "    --supplier supplier.csv --out ./cost-review",
+  "",
   "Required options:",
   "  --current FILE    Current full Shopify product CSV export",
   "  --supplier FILE   Supplier CSV, with one unique nonblank SKU per item",
-  "  --proposed FILE   Proposed Shopify-shaped update CSV (not imported)",
   "  --out NEW_DIR     NEW report directory; existing paths refused",
+  "Optional:",
+  "  --proposed FILE   Proposed Shopify update CSV; enables before/after diff",
   "",
-  "Outputs (local files ONLY): summary.json, supplier-matches-NOT-SHOPIFY-",
+  "Outputs: 7 local reports when proposed exists, 5 when absent.",
+  "Review-only outputs include: summary.json, supplier-matches-NOT-SHOPIFY-",
   "IMPORT.csv, unmatched-skus.csv, proposed-changes.csv,",
   "supplier-margin-REVIEW-ONLY.csv, preflight-current.csv,",
   "and preflight-proposed.csv",
@@ -65,7 +71,7 @@ export function parseArgs(argv) {
     if (value.includes("\0")) throw new Error("NUL in file path.");
     values[option] = value;
   }
-  for (const key of allowed) {
+  for (const key of ["--current", "--supplier", "--out"]) {
     if (!(key in values)) throw new Error("Missing required " + key + ". Use --help.");
   }
   return {
@@ -77,27 +83,51 @@ export function parseArgs(argv) {
 }
 
 export function makeReports({current, supplier, proposed}) {
+  // OMITTING proposed is an explicit two-file supplier-cost review.
+  // Never pretend that any product changes have been checked.
+  const proposedSupplied = typeof proposed === "string";
+  if (proposed !== undefined && !proposedSupplied) {
+    throw new Error("Proposed file must be CSV text or omitted entirely.");
+  }
   // All input validation takes place BEFORE touching the output filesystem.
   // Ambiguous supplier duplicates and CSV comparison keys cause an error.
   const before = inspectShopifyProductCSV(current, {mode: "update"});
-  const after = inspectShopifyProductCSV(proposed, {mode: "update"});
+  const after = proposedSupplied ?
+    inspectShopifyProductCSV(proposed, {mode: "update"}) : null;
   const joined = joinCSVByKey(current, supplier, {
     primaryKey: "SKU", lookupKey: "SKU", mode: "left", caseSensitive: true,
   });
-  const diff = compareCSVExports(current, proposed, {
-    key: "SKU", caseSensitive: true,
-  });
+  const diff = proposedSupplied ?
+    compareCSVExports(current, proposed, {
+      key: "SKU", caseSensitive: true,
+    }) : null;
 
   // These are advisory RISK signals, not Shopify importer predictions.
   // Evaluate matched SKU rows only, and only columns actually INCLUDED
   // in BOTH exports. Omitting a column is not equivalent to blanking it.
   const oldData = readCSVForComparison(current, "Current Shopify export");
-  const newData = readCSVForComparison(proposed, "Proposed Shopify export");
+  // The 3-file diff already refuses ambiguous business keys; its absence in
+  // 2-file mode MUST NOT make empty/reused current-product SKUs acceptable.
+  if(!proposedSupplied){
+    const seenSKU=new Set();
+    for(const row of oldData.records){
+      const sku=String(row.fields.SKU??"").trim();
+      if(!sku)throw new Error("Current Shopify CSV: empty SKU key in row "+row.rowNumber);
+      if(seenSKU.has(sku)){
+        throw new Error("Current Shopify CSV: duplicate SKU key in row "+row.rowNumber+
+          ". Fix conflicting variants before supplier cost review.");
+      }
+      seenSKU.add(sku);
+    }
+  }
+  const newData = proposedSupplied ?
+    readCSVForComparison(proposed, "Proposed Shopify export") : oldData;
   const oldBySKU = new Map(oldData.records.map(row => [
     String(row.fields.SKU).trim(), row.fields
   ]));
-  const sharedFields = newData.headers.filter(field =>
-    field !== "SKU" && oldData.headers.includes(field));
+  const sharedFields = proposedSupplied ?
+    newData.headers.filter(field =>
+      field !== "SKU" && oldData.headers.includes(field)) : [];
   const importRisk = {
     includedBlankCellChanges: 0,
     variantOptionValueChanges: 0,
@@ -166,7 +196,10 @@ export function makeReports({current, supplier, proposed}) {
     return Number.isSafeInteger(units)?units:null;
   }
   const margin={
-    inspectedProposedSKU:newData.records.length,
+    inspectedProposedSKU:proposedSupplied?newData.records.length:null,
+    inspectedCurrentSKU:oldData.records.length,
+    priceSource:proposedSupplied?"PROPOSED_CSV":"CURRENT_CSV_NO_PROPOSAL",
+    proposedExportSupplied:proposedSupplied,
     validComparisons:0, belowSupplierCost:0,
     missingSupplier:0, unavailableCost:0, invalidCost:0,
     unavailableProposedPrice:0, invalidProposedPrice:0,
@@ -176,7 +209,9 @@ export function makeReports({current, supplier, proposed}) {
     firstEightRows:[]
   };
   const marginReport=[[
-    "SKU","supplier_cost","current_shopify_price","proposed_shopify_price",
+    "SKU","supplier_cost",
+    proposedSupplied?"current_shopify_price":"baseline_current_price",
+    proposedSupplied?"proposed_shopify_price":"current_shopify_price_under_review",
     "price_minus_supplier_cost_before_fees","price_cost_margin_percent",
     "review_status"
   ]];
@@ -216,12 +251,13 @@ export function makeReports({current, supplier, proposed}) {
     if(margin.firstEightRows.length<8)margin.firstEightRows.push(review);
   }
   const manualReviewRequired = Boolean(
-    before.metrics.errors || after.metrics.errors ||
-    before.metrics.warnings || after.metrics.warnings ||
+    !proposedSupplied ||
+    before.metrics.errors || (after && after.metrics.errors) ||
+    before.metrics.warnings || (after && after.metrics.warnings) ||
     joined.metrics.unmatched || joined.metrics.blankPrimaryKeys ||
     joined.metrics.duplicatesInPrimary ||
-    diff.metrics.added || diff.metrics.removed ||
-    diff.metrics.changed || margin.belowSupplierCost ||
+    (diff && (diff.metrics.added || diff.metrics.removed ||
+      diff.metrics.changed)) || margin.belowSupplierCost ||
     margin.missingSupplier || margin.invalidCost || margin.invalidProposedPrice ||
     margin.unavailableCost || margin.unavailableProposedPrice
   );
@@ -231,12 +267,15 @@ export function makeReports({current, supplier, proposed}) {
     shopifyAccountAccessed: false,
     dataUploaded: false,
     advertisingLoaded: false,
+    comparisonMode:proposedSupplied?"THREE_CSV_WITH_PROPOSED":"TWO_CSV_SUPPLIER_COST_ONLY",
+    proposedFileSupplied:proposedSupplied,
+    productChangeComparisonPerformed:proposedSupplied,
     supplierJoin: joined.metrics,
-    changedProductRecords: diff.metrics,
-    possibleImportRisks: importRisk,
+    changedProductRecords: proposedSupplied?diff.metrics:null,
+    possibleImportRisks: proposedSupplied?importRisk:null,
     supplierCostMarginReview: margin,
     existingShopifyPreflight: before.metrics,
-    proposedShopifyPreflight: after.metrics,
+    proposedShopifyPreflight: after?after.metrics:null,
     manualReviewRequired,
     outputCannotBeImportedDirectlyIntoShopify: true,
     important: [
@@ -248,6 +287,9 @@ export function makeReports({current, supplier, proposed}) {
       "Margin checks are SIMPLE price-minus-supplier-cost arithmetic, never real profit or an instruction to price products.",
       "Verify same-currency input, tax, discounts, refunds, payment processing, shipping and advertising costs separately.",
       "Consult Shopify's official documentation and test one or two products first.",
+      ...(!proposedSupplied ? [
+        "NO PROPOSED CSV WAS PROVIDED. Product changes and import overwrite risks were NOT checked. Current Shopify prices were reviewed against supplier costs only."
+      ] : []),
     ],
     relatedFreeTools: {
       skuJoin: "https://tools.trendbridged.com/tools/join-csv-by-key/",
@@ -259,16 +301,16 @@ export function makeReports({current, supplier, proposed}) {
     summary,
     // The first 12 report rows only, already produced by our shared CSV
     // diff engine; never parse arbitrarily large downloaded reports.
-    changePreview: diff.previewRows.slice(1),
-    comparisonReportLines: diff.reportLines,
+    changePreview: proposedSupplied?diff.previewRows.slice(1):[],
+    comparisonReportLines: proposedSupplied?diff.reportLines:null,
     supplierMarginPreview: margin.firstEightRows,
     files: new Map([
       ["supplier-matches-NOT-SHOPIFY-IMPORT.csv", joined.csv],
       ["unmatched-skus.csv", joined.unmatchedCSV],
-      ["proposed-changes.csv", diff.csv],
+      ...(proposedSupplied?[["proposed-changes.csv", diff.csv]]:[]),
       ["supplier-margin-REVIEW-ONLY.csv", "﻿"+stringifyCSV(marginReport,",",true)],
       ["preflight-current.csv", before.csv],
-      ["preflight-proposed.csv", after.csv],
+      ...(proposedSupplied?[["preflight-proposed.csv", after.csv]]:[]),
       ["summary.json", JSON.stringify(summary, null, 2) + "\n"],
     ]),
   };
@@ -276,12 +318,15 @@ export function makeReports({current, supplier, proposed}) {
 
 export async function audit(args) {
   if (args.help) return {help: true};
-  if (!args.current || !args.supplier || !args.proposed || !args.out) {
-    throw new Error("All four input/output options are required.");
+  if (!args.current || !args.supplier || !args.out) {
+    throw new Error("Current, supplier and output directory are required.");
   }
-  const inputs = [args.current, args.supplier, args.proposed].map(p => path.resolve(p));
+  const inputs = [args.current, args.supplier,
+    ...(args.proposed?[args.proposed]:[])].map(p => path.resolve(p));
   const output = path.resolve(args.out);
-  if (new Set(inputs).size !== 3) throw new Error("Three distinct input CSV files are required.");
+  if (new Set(inputs).size !== inputs.length) {
+    throw new Error("Input CSV paths must be distinct.");
+  }
   if (inputs.includes(output)) throw new Error("Output may not replace an input CSV file.");
   const [current, supplier, proposed] = await Promise.all(inputs.map(p => readFile(p, "utf8")));
   const {summary, files} = makeReports({current, supplier, proposed});
@@ -304,7 +349,8 @@ export async function audit(args) {
     reportsWritten: files.size,
     supplierMatches: summary.supplierJoin.matched,
     unmatchedSKUs: summary.supplierJoin.unmatched,
-    changedRecords: summary.changedProductRecords.changed,
+    changedRecords:summary.changedProductRecords?.changed??null,
+    proposedFileSupplied:summary.proposedFileSupplied,
     manualReviewRequired: summary.manualReviewRequired,
     allWorkLocal: true,
     importedToShopify: false,

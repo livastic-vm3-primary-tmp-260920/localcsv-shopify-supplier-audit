@@ -27,14 +27,15 @@ function page({source=INPUTS}={}){
  for(const name of ["sku-audit-form","run","status","results","summary","reports","clear",
                     "review-preview","changed-fields-preview","import-risk-summary","import-risk-examples",
                     "margin-panel","margin-overview","margin-rows",
-                    "current","supplier","proposed"]){
+                    "cost-only","current","supplier","proposed"]){
    elements[name]={
-      id:name,textContent:"",disabled:false,hidden:false,files:[],
+      id:name,textContent:"",disabled:false,hidden:false,checked:false,required:true,files:[],
       children:[],addEventListener(event,callback){events[name+":"+event]=callback;},
       append(child){this.children.push(child);},
       replaceChildren(){this.children=[];},
       reset(){
         for(const key of ["current","supplier","proposed"])elements[key].files=[];
+        elements["cost-only"].checked=false;
       }
    };
  }
@@ -77,7 +78,11 @@ function page({source=INPUTS}={}){
       await events["sku-audit-form:submit"]({preventDefault(){prevented=true;}});
       assert.equal(prevented,true);
     },
-    clear(){events["clear:click"]();}
+    clear(){events["clear:click"]();},
+    setTwoFile(value=true){
+      elements["cost-only"].checked=value;
+      events["cost-only:change"]();
+    }
  };
 }
 
@@ -276,4 +281,66 @@ test("margin screen never treats price-cost arithmetic as verified profit",async
  assert.equal(ui.elements["margin-rows"].children.length,3);
  assert.ok(ui.elements.reports.children.some(li=>
    li.children[0]?.download==="supplier-margin-REVIEW-ONLY.csv"));
+});
+
+test("two real CSV files produce FIVE reports and never imply a proposed file or changed products",async()=>{
+ const ui=page({source:{...INPUTS,proposed:null}});
+ ui.setTwoFile(true);
+ assert.equal(ui.elements.proposed.disabled,true);
+ assert.equal(ui.elements.proposed.required,false);
+ await ui.submit();
+ assert.equal(ui.elements.results.hidden,false);
+ assert.equal(ui.objectURLs.length,5);
+ assert.equal(ui.elements.reports.children.length,5);
+ assert.equal(ui.elements["review-preview"].hidden,true);
+ assert.equal(ui.elements["changed-fields-preview"].children.length,0);
+ assert.equal(ui.elements["margin-panel"].hidden,false);
+ assert.equal(ui.elements["margin-rows"].children.length,3);
+ assert.match(ui.elements["margin-overview"].textContent,/TWO-FILE SUPPLIER COST REVIEW ONLY/);
+ assert.match(ui.elements["margin-rows"].children[0].textContent,/current price.*29.00/);
+ assert.match(ui.elements.status.textContent,/Five local reports prepared/);
+ assert.match(ui.elements.summary.textContent,/Product change comparison: NOT RUN/);
+ const actual=ui.elements.reports.children.map(li=>li.children[0].download);
+ assert.deepEqual(actual,[
+  "supplier-matches-NOT-SHOPIFY-IMPORT.csv","unmatched-skus.csv",
+  "supplier-margin-REVIEW-ONLY.csv","preflight-current.csv","summary.json"
+ ]);
+ const summary=JSON.parse(await ui.objectURLs[4].blob.text());
+ assert.equal(summary.proposedFileSupplied,false);
+ assert.equal(summary.productChangeComparisonPerformed,false);
+ assert.equal(summary.changedProductRecords,null);
+ assert.equal(summary.proposedShopifyPreflight,null);
+ assert.equal(summary.manualReviewRequired,true);
+ assert.equal(summary.supplierCostMarginReview.validComparisons,3);
+ assert.equal(summary.supplierCostMarginReview.priceSource,"CURRENT_CSV_NO_PROPOSAL");
+ ui.clear();
+ assert.equal(ui.elements.proposed.disabled,false);
+ assert.equal(ui.elements.proposed.required,true);
+ assert.equal(ui.elements["cost-only"].checked,false);
+ assert.equal(ui.revoked.length,5);
+});
+
+test("two-file toggle refuses silently discarding any selected proposed CSV",async()=>{
+ const ui=page();
+ ui.setTwoFile(true);
+ assert.equal(ui.elements["cost-only"].checked,false);
+ assert.equal(ui.elements.proposed.disabled,false);
+ assert.match(ui.elements.status.textContent,/Do not ignore selected proposed CSV/);
+ // Defend also against someone programmatically forcing the checkbox.
+ ui.elements["cost-only"].checked=true;
+ await ui.submit();
+ assert.equal(ui.objectURLs.length,0);
+ assert.equal(ui.elements.results.hidden,true);
+ assert.match(ui.elements.status.textContent,/A proposed CSV is selected/);
+});
+
+test("both modes require their actual source files, and switching hides stale reports",async()=>{
+ const ui=page({source:{current:null,supplier:INPUTS.supplier,proposed:null}});
+ ui.setTwoFile(true);
+ await ui.submit();
+ assert.match(ui.elements.status.textContent,/Choose current Shopify export and supplier CSV/);
+ assert.equal(ui.objectURLs.length,0);
+ ui.setTwoFile(false);
+ await ui.submit();
+ assert.match(ui.elements.status.textContent,/Choose all three CSV files/);
 });

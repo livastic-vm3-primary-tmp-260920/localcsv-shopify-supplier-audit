@@ -42,9 +42,19 @@ but passing checks does **not** guarantee a safe import.
 
 ---
 
+## NEW: compare current Shopify prices against supplier costs with TWO CSVs (v1.5.0)
+
+**[Open the free browser-only supplier SKU & cost checker](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-audit/)**. If you have only a current Shopify product export and a supplier SKU/cost CSV, choose **"No proposed CSV yet?"** in the file form and select those TWO files. It checks SKU matches, invalid/missing supplier costs, and prices below supplier cost. Download **five review-only reports**. You can also click **"Run fictional 2-CSV supplier cost review"** to see the full example without any file preparation.
+
+**Crucial accuracy safeguard:** A TWO-file review does **NOT** check changed product fields, create a proposed export, invent Shopify import safety results, or claim that no product changes have occurred. The changed-fields reports are generated **only** if you supply a real proposed CSV as the third file. All cost comparisons assume the same currency and exclude sales tax, shipping, discounts, advertising, card fees and refunds. This is not actual profit or advice on price setting. **Never import supplier-joined or margin reports directly into Shopify.**
+
+**한국어:** 현재 Shopify 상품 CSV와 공급업체 SKU/원가 CSV **두 파일만** 있으면 '변경 예정 CSV 없음'을 선택하여 SKU 대응, 원가 누락, 판매가가 공급가보다 낮은 상품을 확인할 수 있습니다. 5개 분석용 보고서를 다운로드합니다. **'두 파일 예제' 버튼으로 파일 준비 없이 무료 체험**할 수도 있습니다. 변경 예정 상품 CSV가 없으면 가격·재고 변경 비교는 **절대 수행하지 않습니다.** 통화가 동일하다는 가정이 필요하며 배송·광고·수수료·세금 등을 제외해 실제 이익을 계산한 것은 아닙니다.
+
+---
+
 ## Try the three-file supplier comparison online — open-source demo
 
-**[Open the free three-file supplier SKU comparison](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-audit/)**. Run a real browser-only audit using current Shopify product CSV, a supplier SKU list, and a proposed CSV. It produces seven review-only reports and includes three small fictional examples to try first. **New: click `Run fictional 3-CSV example` to generate all seven reports instantly without downloading or selecting sample files.** No login, file upload, network calls from the CSV editor, third-party scripts or advertising. It is an educational, noncommercial open-source reference implementation, not an importer. The original ad-opt-in LocalCSV Lab tools remain linked for single-file workflows.
+**[Open the free two- or three-file supplier SKU comparison](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-audit/)**. In three-file mode, run a real browser-only audit using current Shopify product CSV, a supplier SKU list, and a proposed CSV. It produces seven review-only reports and includes three small fictional examples to try first. **New: click `Run fictional 3-CSV example` to generate all seven reports instantly without downloading or selecting sample files.** No login, file upload, network calls from the CSV editor, third-party scripts or advertising. It is an educational, noncommercial open-source reference implementation, not an importer. The original ad-opt-in LocalCSV Lab tools remain linked for single-file workflows.
 
 **한국어:** [Shopify 공급업체 SKU CSV 3개 무료 비교 체험](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-audit/) — 기존 상품·공급업체·변경 예정 CSV를 브라우저 안에서 비교하고 7개 분석 보고서를 내려받습니다. 회원가입·파일 전송·광고 없이 사용하는 오픈소스 학습용 데모이며 Shopify 상품을 직접 수정하지 않습니다.
 
@@ -62,9 +72,9 @@ The HTML source is retained at [offline/shopify-csv-preflight.html](offline/shop
 
 ---
 
-## Updated: zero-install THREE-CSV supplier comparison (v1.4.0)
+## Updated: zero-install Shopify supplier audit (TWO or THREE CSVs, v1.5.0)
 
-**[Download the free 3-CSV browser audit HTML](https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/releases/latest/download/shopify-supplier-threeway-audit.html).** Save it, open it in a modern browser (even without an internet connection), and select: **current Shopify export**, **supplier SKU/cost CSV**, and **proposed Shopify product CSV**. It generates seven local review reports covering SKU matches, exceptions, field changes and Shopify CSV preflight findings. **NEW: the browser shows the first 12 change rows immediately, counts possible blank-cell overwrites, changed variant option values and product handle changes, and flags any changed records as requiring human review.** These are conservative advisories, not Shopify import guarantees. No Node.js installation, signup, account token, merchant-file upload or advertising. Each input must be under 2.2 MB; ambiguous or blank comparison keys are rejected rather than guessed.
+**[Download the free 2- or 3-CSV browser audit HTML](https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/releases/latest/download/shopify-supplier-threeway-audit.html).** Save it, open it in a modern browser (even without an internet connection). Choose the two-file supplier-cost mode or select: **current Shopify export**, **supplier SKU/cost CSV**, and **proposed Shopify product CSV**. It generates seven local review reports covering SKU matches, exceptions, field changes and Shopify CSV preflight findings. **NEW: the browser shows the first 12 change rows immediately, counts possible blank-cell overwrites, changed variant option values and product handle changes, and flags any changed records as requiring human review.** These are conservative advisories, not Shopify import guarantees. No Node.js installation, signup, account token, merchant-file upload or advertising. Each input must be under 2.2 MB; ambiguous or blank comparison keys are rejected rather than guessed.
 
 **Supplier cost review (new in v1.4.0):** The seventh report,
 supplier-margin-REVIEW-ONLY.csv, compares each proposed Shopify variant Price
@@ -101,7 +111,9 @@ Imagine a clothing store with two T-shirt sizes and one cap. You receive a suppl
 2. **Before/after changes:** Compare current and proposed product exports by a **unique** SKU and report field-level changes, with CSV source row numbers. Ambiguous/blank SKU keys cause an error.
 3. **Shopify CSV preflight:** Check handles, titles, variants, prices, inventory and image URL syntax. These are advisory diagnostics, **not** official Shopify import validation.
 
-All included merchant data is **fictional**.
+All included example merchant data is **fictional**; user-selected files are never uploaded.
+
+**Two-file mode** does not perform proposed product-change comparison or create diff or proposed-preflight reports. No fake empty diff is presented.
 
 ## Quick start — Node.js 20+
 

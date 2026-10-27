@@ -45,6 +45,8 @@ APP = r"""
   const marginOverview=document.getElementById("margin-overview");
   const marginRows=document.getElementById("margin-rows");
   const clear=document.getElementById("clear");
+  const costOnly=document.getElementById("cost-only");
+  const proposedInput=document.getElementById("proposed");
   let urls=[];
 
   function resetResults(){
@@ -65,10 +67,17 @@ APP = r"""
   form.addEventListener("submit",async function(event){
     event.preventDefault();
     resetResults();
-    const elements=["current","supplier","proposed"];
+    const twoFile=costOnly.checked;
+    if(twoFile && proposedInput.files.length){
+      status.textContent="A proposed CSV is selected. Clear it before two-file supplier-only review. / 3번째 파일을 초기화해야 합니다.";
+      return;
+    }
+    const elements=twoFile?["current","supplier"]:["current","supplier","proposed"];
     const files=elements.map(id=>document.getElementById(id).files[0]);
     if(files.some(file=>!file)){
-      status.textContent="Choose all three CSV files. / CSV 파일 3개를 모두 선택하세요.";
+      status.textContent=twoFile?
+        "Choose current Shopify export and supplier CSV. / 기존 상품과 공급업체 CSV 2개를 선택하세요.":
+        "Choose all three CSV files. / CSV 파일 3개를 모두 선택하세요.";
       return;
     }
     if(files.some(file=>file.size>2200000)){
@@ -80,18 +89,21 @@ APP = r"""
     try{
       const texts=await Promise.all(files.map(file=>file.text()));
       const result=makeReports({
-        current:texts[0], supplier:texts[1], proposed:texts[2]
+        current:texts[0], supplier:texts[1],
+        proposed:twoFile?undefined:texts[2]
       });
       const m=result.summary;
       summary.textContent=
         "Supplier matches: "+m.supplierJoin.matched+
         " | Unmatched: "+m.supplierJoin.unmatched+
-        " | Changed records: "+m.changedProductRecords.changed+
-        " | Added/removed: "+(m.changedProductRecords.added+m.changedProductRecords.removed)+
+        (twoFile?" | Product change comparison: NOT RUN (no proposed CSV)":
+         " | Changed records: "+m.changedProductRecords.changed+
+         " | Added/removed: "+(m.changedProductRecords.added+m.changedProductRecords.removed))+
         " | Manual review: "+(m.manualReviewRequired?"YES":"NO")+
         ". This is an AUDIT, not an import.";
       // Show the existing diff engine's bounded FIRST 12 report rows.
       // Never place customer CSV text into HTML or third-party scripts.
+      if(m.productChangeComparisonPerformed){
       for(const row of result.changePreview){
         const item=document.createElement("li");
         item.textContent=String(row[0])+" / SKU "+String(row[1])+
@@ -118,10 +130,14 @@ APP = r"""
         riskList.append(item);
       }
       preview.hidden=false;
+      }
       // Advisory arithmetic ONLY: never invent same-currency assurance or
       // profit after shipping, tax, discounts, labor, fees or advertising.
       const pricing=m.supplierCostMarginReview;
       marginOverview.textContent=
+        (twoFile?
+         "TWO-FILE SUPPLIER COST REVIEW ONLY. Current Shopify price, NO proposed update compared. ":
+         "THREE-FILE: reviewing PROPOSED Shopify price. ")+
         "Price-minus-supplier-cost review: "+pricing.validComparisons+
         " calculated; "+pricing.belowSupplierCost+" below supplier cost; "+
         pricing.missingSupplier+" unmatched supplier SKUs; "+
@@ -133,7 +149,7 @@ APP = r"""
         const item=document.createElement("li");
         item.textContent="SKU "+String(row[0])+
           " | cost "+String(row[1])+
-          " | proposed price "+String(row[3])+
+          (twoFile?" | current price ":" | proposed price ")+String(row[3])+
           " | difference "+String(row[4])+
           " | price-cost margin "+String(row[5])+"%"+
           " | "+String(row[6]);
@@ -153,7 +169,9 @@ APP = r"""
         reports.append(item);
       }
       results.hidden=false;
-      status.textContent="Seven local reports prepared. Never import ANY audit report into Shopify.";
+      status.textContent=twoFile?
+        "Five local reports prepared: supplier cost vs CURRENT Shopify prices; no product change analysis. Do not import audit reports.":
+        "Seven local reports prepared. Never import ANY audit report into Shopify.";
     }catch(error){
       resetResults();
       status.textContent="Audit stopped safely: "+String(error&&error.message?error.message:error);
@@ -162,8 +180,25 @@ APP = r"""
     }
   });
 
+  costOnly.addEventListener("change",function(){
+    if(costOnly.checked && proposedInput.files.length){
+      costOnly.checked=false;
+      status.textContent="Do not ignore selected proposed CSV. Clear / 초기화 first. / 선택한 변경 예정 파일을 초기화하세요.";
+      return;
+    }
+    proposedInput.disabled=costOnly.checked;
+    proposedInput.required=!costOnly.checked;
+    resetResults();
+    status.textContent=costOnly.checked?
+      "Two-file supplier-only mode: choose current Shopify and supplier CSV. NO product change comparison.":
+      "Three-file mode: choose current Shopify, supplier, AND proposed export.";
+  });
+
   clear.addEventListener("click",function(){
     form.reset();
+    proposedInput.disabled=false;
+    proposedInput.required=true;
+    costOnly.checked=false;
     resetResults();
     status.textContent="File selections and generated links cleared. / 입력 및 결과를 지웠습니다.";
   });
@@ -181,12 +216,17 @@ PAGE = r"""<!doctype html>
 <style>@@STYLE@@</style></head>
 <body><main>
 <p class="muted">LocalCSV Lab · Downloadable free browser utility · No account, upload, ads or installation</p>
-<h1>Offline Shopify supplier SKU change audit</h1>
-<p>Compare <strong>three CSV files</strong>: your current Shopify product export, a supplier SKU/cost list,
-and a separately prepared proposed Shopify product CSV. Check SKU matches, added/removed and changed variants,
-and advisory errors before considering an import. Nothing is sent to a server.</p>
-<p lang="ko"><strong>한국어:</strong> 기존 Shopify 상품 CSV, 공급업체 SKU/원가 CSV,
-변경 예정 상품 CSV를 각각 선택하면 브라우저에서 SKU 대응·변경사항·상품 데이터 오류를 비교합니다.
+<h1>Offline Shopify supplier SKU and price-cost review</h1>
+<p><strong>Only two CSVs?</strong> Start with your current Shopify export
+and your supplier SKU/cost CSV. Audit SKU matching, supplier costs and
+current sale prices (5 review-only reports); no proposed-product change
+comparison is performed. When ready, add a separately prepared proposed
+Shopify product CSV to audit changed fields and possible import risks
+(7 review-only reports). Nothing is sent to a server.</p>
+<p lang="ko"><strong>한국어:</strong> 현재 Shopify 상품 CSV + 공급업체 SKU/원가
+CSV <strong>2개만으로</strong> SKU·원가·현재 판매가를 확인하고 5개 보고서를 받을 수
+있습니다. 변경 예정 상품 CSV도 있으면 3개 파일로 변경 내역과 가져오기 위험을
+검토해 7개 보고서를 받습니다. 두 파일 모드에서는 변경사항을 비교하지 않습니다.
 서버 업로드, 회원가입, 앱 설치, 광고가 없습니다.</p>
 <div class="note" role="note"><strong>Backup before editing.</strong>
 This tool <strong>does not create a safe Shopify import file</strong> or modify your products.
@@ -201,15 +241,24 @@ Test one or two products using Shopify's official process first.</div>
 <input id="current" type="file" accept=".csv,text/csv" required></label>
 <label for="supplier">2. Supplier SKU list / 공급업체 SKU/원가 CSV
 <input id="supplier" type="file" accept=".csv,text/csv" required></label>
-<label for="proposed">3. Proposed Shopify export / 변경 예정 Shopify CSV
+<label for="proposed">3. Proposed Shopify export / 변경 예정 Shopify CSV (three-file mode only)
 <input id="proposed" type="file" accept=".csv,text/csv" required></label>
+<label for="cost-only">
+<input id="cost-only" type="checkbox">
+<strong>No proposed CSV yet?</strong> Review supplier cost against CURRENT Shopify price
+using only TWO CSVs / 변경 예정 CSV가 없다면 기존 Shopify + 공급업체 CSV
+2개만으로 공급가·판매가 검토 (변경사항 비교는 수행하지 않음).
+</label>
+<p class="muted">In two-file mode, proposed-field change analysis is NOT run, and
+five review-only reports are generated. The third file can never be
+silently ignored. In three-file mode seven reports are generated.</p>
 <p class="muted">Each CSV: under 2.2 MB, UTF-8 preferred. The SKU key must be unique and nonblank
 for comparison. Ambiguous data stops rather than silently guessing.</p>
-<div class="actions"><button id="run" type="submit">Audit three CSVs locally / 로컬 검사</button>
+<div class="actions"><button id="run" type="submit">Audit selected CSVs locally / 로컬 검사</button>
 <button id="clear" type="button">Clear / 초기화</button></div></form>
-<p id="status" role="status" aria-live="polite">Choose three CSVs to begin. No data leaves your browser.</p>
+<p id="status" role="status" aria-live="polite">Choose two or three CSVs to begin. No data leaves your browser.</p>
 <section id="results" class="panel" hidden>
-<h2>Review and download seven reports / 보고서 7개</h2>
+<h2>Review and download reports / 보고서 다운로드 (2 files: 5; 3 files: 7)</h2>
 <p id="summary"></p>
 <section id="review-preview" aria-labelledby="review-preview-title" hidden>
 <h3 id="review-preview-title">Change preview and potential import risks / 변경 내역 및 위험 신호</h3>
@@ -236,12 +285,12 @@ supplier-margin-REVIEW-ONLY.csv for all rows; do not import it to Shopify.</p>
 </section>
 <ul id="reports"></ul>
 <p><strong>Do not import</strong> supplier-matches-NOT-SHOPIFY-IMPORT.csv
-or supplier-margin-REVIEW-ONLY.csv; all seven local reports are for
+or supplier-margin-REVIEW-ONLY.csv; ALL generated local reports are for
 private review, not merchant upload instructions.</p></section>
 <section class="panel">
 <h2>Limits, security and official guidance</h2>
-<p>For your privacy this downloadable single HTML includes only the original open-source
-CSV parser, SKU join, CSV diff and Shopify preflight algorithms.
+<p>For your privacy this downloadable single HTML includes only the open-source
+CSV parser, supplier SKU join, optional CSV diff and Shopify preflight algorithms.
 No network, telemetry, cookies, scripts from other sites, or Shopify API calls.
 Input is limited to protect browser performance; any ambiguous key stops safely.
 Advisory warnings cannot guarantee Shopify import success.</p>

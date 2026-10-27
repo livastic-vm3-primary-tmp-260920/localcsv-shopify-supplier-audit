@@ -20,7 +20,7 @@ const inputs = {
   proposed: fixture("shopify-proposed-products.csv"),
 };
 
-test("help documents all four mandatory options and no account requirement", () => {
+test("help documents THREE mandatory options and optional proposed export", () => {
   assert.deepEqual(parseArgs([]), {help: true});
   assert.deepEqual(parseArgs(["--help"]), {help: true});
   const help = execFileSync(process.execPath, [CLI, "--help"], {
@@ -28,7 +28,8 @@ test("help documents all four mandatory options and no account requirement", () 
   });
   for (const expected of [
     "--current", "--supplier", "--proposed", "--out NEW_DIR",
-    "never import", "Shopify", "https://tools.trendbridged.com/tools/join-csv-by-key/",
+    "TWO-FILE option", "Optional", "5 when absent", "never import", "Shopify",
+    "https://tools.trendbridged.com/tools/join-csv-by-key/",
   ]) assert.ok(help.toLowerCase().includes(expected.toLowerCase()), expected);
 });
 
@@ -328,4 +329,95 @@ test("multiple candidate supplier cost columns produce explicit ambiguity instea
  assert.equal(summary.supplierCostMarginReview.unavailableCost,3);
  const rows=parseCSV(files.get("supplier-margin-REVIEW-ONLY.csv").replace(/^\uFEFF/,""));
  assert.ok(rows.slice(1).every(r=>r[6]==="AMBIGUOUS_COST_COLUMNS"));
+});
+
+test("genuine two-file supplier-cost workflow uses only current Shopify + supplier, with no fabricated proposal",async()=>{
+ const current=await readFile(inputs.current,"utf8");
+ const supplier=await readFile(inputs.supplier,"utf8");
+ const out=makeReports({current,supplier});
+ assert.equal(out.summary.comparisonMode,"TWO_CSV_SUPPLIER_COST_ONLY");
+ assert.equal(out.summary.proposedFileSupplied,false);
+ assert.equal(out.summary.productChangeComparisonPerformed,false);
+ assert.equal(out.summary.changedProductRecords,null);
+ assert.equal(out.summary.proposedShopifyPreflight,null);
+ assert.equal(out.summary.possibleImportRisks,null);
+ assert.equal(out.summary.manualReviewRequired,true);
+ assert.equal(out.changePreview.length,0);
+ assert.equal(out.comparisonReportLines,null);
+ assert.equal(out.files.size,5);
+ assert.deepEqual([...out.files.keys()],[
+  "supplier-matches-NOT-SHOPIFY-IMPORT.csv",
+  "unmatched-skus.csv","supplier-margin-REVIEW-ONLY.csv",
+  "preflight-current.csv","summary.json"
+ ]);
+ assert.equal(out.summary.supplierCostMarginReview.validComparisons,3);
+ assert.equal(out.summary.supplierCostMarginReview.priceSource,"CURRENT_CSV_NO_PROPOSAL");
+ const records=parseCSV(out.files.get("supplier-margin-REVIEW-ONLY.csv").replace(/^\uFEFF/,""));
+ assert.equal(records[0][3],"current_shopify_price_under_review");
+ assert.deepEqual(records.slice(1).map(row=>[row[0],row[4],row[5]]),[
+  ["TEE-BLK-M","17.0000","58.62"],
+  ["TEE-BLK-L","16.5000","56.90"],
+  ["CAP-WOOL","9.7500","54.17"]
+ ]);
+ assert.match(out.files.get("summary.json"),/NO PROPOSED CSV WAS PROVIDED/);
+});
+
+test("CLI two-file mode accepts three flags, creates precisely five review reports and never imports Shopify",async()=>{
+ const parsed=parseArgs(["--supplier",inputs.supplier,"--out","/tmp/a-new-dir","--current",inputs.current]);
+ assert.equal(parsed.proposed,undefined);
+ const base=await mkdtemp(path.join(os.tmpdir(),"localcsv-two-file-cli-"));
+ try{
+  const out=path.join(base,"reports");
+  const run=await audit({current:inputs.current,supplier:inputs.supplier,out});
+  assert.equal(run.reportsWritten,5);
+  assert.equal(run.changedRecords,null);
+  assert.equal(run.proposedFileSupplied,false);
+  assert.equal(run.publisherRevenueUSD,null);
+  assert.equal(run.allWorkLocal,true);
+  assert.equal(run.importedToShopify,false);
+  assert.deepEqual((await readdir(out)).sort(),[
+   "preflight-current.csv","summary.json","supplier-margin-REVIEW-ONLY.csv",
+   "supplier-matches-NOT-SHOPIFY-IMPORT.csv","unmatched-skus.csv"
+  ]);
+  for(const name of await readdir(out)){
+    assert.equal((await stat(path.join(out,name))).mode & 0o077,0);
+  }
+  const second=path.join(base,"reports-command");
+  const raw=spawnSync(process.execPath,[CLI,
+    "--current",inputs.current,"--supplier",inputs.supplier,
+    "--out",second
+  ],{cwd:ROOT,encoding:"utf8",timeout:7000});
+  assert.equal(raw.status,0,raw.stderr);
+  assert.equal(JSON.parse(raw.stdout).reportsWritten,5);
+  assert.equal(JSON.parse(raw.stdout).changedRecords,null);
+  assert.match(raw.stderr,/AUDIT ONLY/);
+ }finally{
+  await rm(base,{recursive:true,force:true});
+ }
+});
+
+test("two-file supplier audit rejects duplicate/blank Shopify business SKU instead of incorrect cost totals",async()=>{
+ const current=await readFile(inputs.current,"utf8");
+ const supplier=await readFile(inputs.supplier,"utf8");
+ const duplicated=current.replace("TEE-BLK-L","TEE-BLK-M");
+ assert.throws(()=>makeReports({current:duplicated,supplier}),/duplicate SKU key/i);
+ const blank=current.replace("TEE-BLK-L","");
+ assert.throws(()=>makeReports({current:blank,supplier}),/empty SKU key/i);
+ assert.throws(()=>makeReports({current,supplier,proposed:1}),
+   /Proposed file must be CSV text/);
+});
+
+test("two-file report truthfully flags supplier cost higher than current sale price",async()=>{
+ const current=await readFile(inputs.current,"utf8");
+ const supplier=(await readFile(inputs.supplier,"utf8")).replace(
+   "TEE-BLK-M,12.00","TEE-BLK-M,35.00"
+ );
+ const result=makeReports({current,supplier});
+ assert.equal(result.summary.supplierCostMarginReview.belowSupplierCost,1);
+ assert.equal(result.summary.supplierCostMarginReview.currencyVerified,false);
+ assert.equal(result.summary.productChangeComparisonPerformed,false);
+ const rows=parseCSV(result.files.get("supplier-margin-REVIEW-ONLY.csv").replace(/^\uFEFF/,""));
+ assert.equal(rows[1][6],"BELOW_SUPPLIER_COST");
+ assert.equal(rows[1][4],"'-6.0000"); // spreadsheet formula protection
+ assert.equal(result.summary.changedProductRecords,null);
 });

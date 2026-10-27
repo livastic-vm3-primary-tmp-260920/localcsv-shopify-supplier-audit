@@ -30,8 +30,9 @@ try{
  }
  if(!port)throw Error("Chrome did not start a local CDP listener");
  const argv=process.argv.slice(2);
-const runFictionalSample=argv.includes("--sample");
-const requestedTarget=argv.find(value=>value!=="--sample");
+const runFictionalSample=argv.includes("--sample")||argv.includes("--two-sample");
+const runTwoFile=argv.includes("--two")||argv.includes("--two-sample");
+const requestedTarget=argv.find(value=>!["--sample","--two","--two-sample"].includes(value));
 const target=requestedTarget?.startsWith("https://")?requestedTarget:
   pathToFileURL(requestedTarget?path.resolve(requestedTarget):
     path.join(ROOT,"offline/shopify-supplier-threeway-audit.html")).href;
@@ -84,11 +85,22 @@ const target=requestedTarget?.startsWith("https://")?requestedTarget:
  }
  assert.ok(loaded,"Target page did not finish navigating with all inputs");
  const doc=await cdp("DOM.getDocument",{depth:1});
+ if(runTwoFile&&!runFictionalSample){
+   const toggle=await cdp("Runtime.evaluate",{
+     expression:"document.getElementById('cost-only').click()",
+     returnByValue:true
+   });
+   const state=await cdp("Runtime.evaluate",{
+     expression:"JSON.stringify({checked:document.getElementById('cost-only').checked,disabled:document.getElementById('proposed').disabled})",
+     returnByValue:true
+   });
+   assert.deepEqual(JSON.parse(state.result.value),{checked:true,disabled:true});
+ }
  if(!runFictionalSample){
    const inputs={
      current:"fixtures/shopify-current-products.csv",
      supplier:"fixtures/supplier-price-update.csv",
-     proposed:"fixtures/shopify-proposed-products.csv",
+     ...(runTwoFile?{}:{proposed:"fixtures/shopify-proposed-products.csv"}),
    };
    for(const [name,relative] of Object.entries(inputs)){
      const found=await cdp("DOM.querySelector",{nodeId:doc.root.nodeId,selector:"#"+name});
@@ -98,12 +110,16 @@ const target=requestedTarget?.startsWith("https://")?requestedTarget:
      });
    }
  }else{
-   const button=await cdp("DOM.querySelector",{nodeId:doc.root.nodeId,selector:"#use-demo-inputs"});
+   const button=await cdp("DOM.querySelector",{nodeId:doc.root.nodeId,selector:
+     runTwoFile?"#use-two-file-demo-inputs":"#use-demo-inputs"});
    assert.ok(button.nodeId,"Missing one-click fictional sample button");
  }
  const beforeAuditRequestCount=requested;
  await cdp("Runtime.evaluate",{
-   expression:runFictionalSample?"document.getElementById('use-demo-inputs').click()":"document.getElementById('run').click()",
+   expression:runFictionalSample?(runTwoFile?
+      "document.getElementById('use-two-file-demo-inputs').click()":
+      "document.getElementById('use-demo-inputs').click()"):
+      "document.getElementById('run').click()",
    returnByValue:true
  });
  let observed;
@@ -113,28 +129,51 @@ const target=requestedTarget?.startsWith("https://")?requestedTarget:
       returnByValue:true
    });
    observed=JSON.parse(payload.result.value);
-   if(observed.reports.length===7)break;
+   if(observed.reports.length===(runTwoFile?5:7))break;
    await sleep(100);
  }
  assert.equal(observed.shown,true);
- assert.equal(observed.reports.length,7);
+ assert.equal(observed.reports.length,runTwoFile?5:7);
  assert.match(observed.summary,/Supplier matches: 3/);
- assert.match(observed.summary,/Changed records: 2/);
+ if(runTwoFile){
+   assert.match(observed.summary,/Product change comparison: NOT RUN/);
+ }else{
+   assert.match(observed.summary,/Changed records: 2/);
+ }
  assert.match(observed.summary,/Manual review: YES/);
- assert.equal(observed.previewShown,true);
- assert.equal(observed.previewRows.length,2);
- assert.match(observed.previewRows[0],/TEE-BLK-M.*Price.*29.00.*31.00/);
- assert.match(observed.previewRows[1],/CAP-WOOL.*Inventory quantity.*7.*6/);
- assert.match(observed.riskText,/0 included cells changing to blank/);
+ if(runTwoFile){
+   assert.equal(observed.previewShown,false);
+   assert.equal(observed.previewRows.length,0);
+   assert.equal(observed.riskText,"");
+ }else{
+   assert.equal(observed.previewShown,true);
+   assert.equal(observed.previewRows.length,2);
+   assert.match(observed.previewRows[0],/TEE-BLK-M.*Price.*29.00.*31.00/);
+   assert.match(observed.previewRows[1],/CAP-WOOL.*Inventory quantity.*7.*6/);
+   assert.match(observed.riskText,/0 included cells changing to blank/);
+ }
  assert.equal(observed.marginShown,true);
  assert.equal(observed.marginRows.length,3);
- assert.match(observed.marginRows[0],/TEE-BLK-M.*61.29%/);
+ assert.match(observed.marginRows[0],runTwoFile?/TEE-BLK-M.*58.62%/:/TEE-BLK-M.*61.29%/);
  assert.match(observed.marginText,/3 calculated/);
+ if(runTwoFile){
+   assert.match(observed.marginText,/TWO-FILE SUPPLIER COST REVIEW ONLY/);
+   assert.ok(!observed.reports.includes("proposed-changes.csv"));
+   assert.ok(!observed.reports.includes("preflight-proposed.csv"));
+ }else{
+   assert.match(observed.marginText,/THREE-FILE/);
+   assert.ok(observed.reports.includes("proposed-changes.csv"));
+ }
  assert.match(observed.marginText,/SAME-CURRENCY ASSUMED/);
  assert.ok(observed.reports.includes("supplier-margin-REVIEW-ONLY.csv"));
  assert.ok(observed.reports.includes("supplier-matches-NOT-SHOPIFY-IMPORT.csv"));
  assert.equal(requested,beforeAuditRequestCount,"The CSV audit triggered network requests");
- console.log("CHROME_END_TO_END_PASS",JSON.stringify({workflow:runFictionalSample?"one-click fictional sample":"user-selected three CSVs",reports:7,summary:observed.summary,networkRequestsDuringAudit:requested-beforeAuditRequestCount}));
+ console.log("CHROME_END_TO_END_PASS",JSON.stringify({
+   workflow:runFictionalSample?(runTwoFile?"one-click TWO-file fictional sample":"one-click THREE-file fictional sample"):
+     (runTwoFile?"TWO user-selected CSVs":"THREE user-selected CSVs"),
+   reports:observed.reports.length,summary:observed.summary,
+   networkRequestsDuringAudit:requested-beforeAuditRequestCount
+ }));
 }finally{
  try{socket?.close();}catch{}
  chrome.kill("SIGTERM");

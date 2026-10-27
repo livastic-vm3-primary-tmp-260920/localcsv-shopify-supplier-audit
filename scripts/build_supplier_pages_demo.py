@@ -17,26 +17,27 @@ PUBLIC = "https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-sup
 
 OFFLINE_ROBOTS = '<meta name="robots" content="noindex,nofollow">'
 PUBLIC_META = f'''<meta name="robots" content="index,follow">
-<meta name="description" content="Free Shopify supplier CSV comparison with instant change preview and blank overwrite and variant risk warnings. Seven private reports including a supplier cost vs. proposed price review. No upload or signup.">
+<meta name="description" content="Free 2-CSV supplier cost versus current Shopify price audit, or 3-CSV proposed change review. Five or seven private reports, no upload or signup.">
 <link rel="canonical" href="{PUBLIC}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Shopify Supplier CSV Change Comparison — Free Browser Demo">
 <meta property="og:description" content="Try a free educational open-source 3-CSV Shopify pre-import audit. No file uploads or advertising.">
 <meta property="og:url" content="{PUBLIC}">'''
 OLD_TITLE = "<title>Free Offline Shopify Supplier SKU Change Audit | LocalCSV Lab</title>"
-NEW_TITLE = "<title>Shopify Supplier CSV Comparison — Free Open-Source Browser Demo</title>"
+NEW_TITLE = "<title>Free Shopify Supplier SKU &amp; Cost CSV Audit — 2 or 3 Files</title>"
 OLD_BANNER = '<p class="muted">LocalCSV Lab · Downloadable free browser utility · No account, upload, ads or installation</p>'
 NEW_BANNER = '<p class="muted">Open-source educational example · Browser-local · Free · No account · No ads or data upload</p>'
 BEFORE_FORM = '<form id="sku-audit-form" class="panel" novalidate>'
 
 SAMPLE_PANEL = """<section class="panel" aria-labelledby="sample-preview-title">
 <h2 id="sample-preview-title">Try the entire workflow in one click / 예제 한 번에 실행</h2>
-<p>No downloads or file selection required. The example uses only three
+<p>No downloads or file selection required. The example uses only two or three
 <strong>fictional</strong> CSV files bundled within this page, and runs the exact
-same seven-report browser-local checker. No customer data, account or ads.</p>
+same privacy-safe local CSV checker. No customer data, account or ads.</p>
 <p lang="ko">가상의 CSV 예제 3개를 브라우저 안에서 자동 선택하여
 7종 보고서를 바로 확인할 수 있습니다. 실제 Shopify 데이터를 업로드하지 않습니다.</p>
-<button id="use-demo-inputs" type="button">Run fictional 3-CSV example / 예제 바로 실행</button>
+<button id="use-demo-inputs" type="button">Run fictional 3-CSV example (7 reports) / 세 파일 예제</button>
+<button id="use-two-file-demo-inputs" type="button">Run fictional 2-CSV supplier cost review (5 reports) / 두 파일 예제</button>
 <p class="muted">If you already selected personal CSV files, clear them before using
 this fictional example. The example NEVER replaces existing selections silently.</p>
 </section>
@@ -44,38 +45,52 @@ this fictional example. The example NEVER replaces existing selections silently.
 
 SAMPLE_JS = r"""(function(){
   "use strict";
-  const button=document.getElementById("use-demo-inputs");
+  const fullButton=document.getElementById("use-demo-inputs");
+  const costButton=document.getElementById("use-two-file-demo-inputs");
+  const costOnly=document.getElementById("cost-only");
   const form=document.getElementById("sku-audit-form");
   const status=document.getElementById("status");
-  if(!button||!form||!status) return;
+  if(!fullButton||!costButton||!costOnly||!form||!status)return;
   const examples=@@EXAMPLES@@;
-  button.addEventListener("click",function(){
-    const fields=["current","supplier","proposed"];
-    const inputs=fields.map(field=>document.getElementById(field));
+  function sample(twoFile){
+    const names=["current","supplier","proposed"];
+    const inputs=names.map(name=>document.getElementById(name));
     if(inputs.some(input=>!input)){
-      status.textContent="Sample is unavailable: file inputs are missing.";
+      status.textContent="Sample unavailable: file inputs missing.";
       return;
     }
+    // Check ALL inputs, including the proposed one in supplier-only mode.
     if(inputs.some(input=>input.files.length)){
-      status.textContent="Clear selected files before trying the fictional example. / 예제 사용 전 실제 파일을 초기화하세요.";
+      status.textContent="Clear selected files before trying fictional examples. / 예제 사용 전 실제 파일을 초기화하세요.";
       return;
     }
+    let staged;
+    const originalMode=costOnly.checked;
     try{
-      // Only literal, locally bundled fictional CSVs; never makes a request.
-      const staged=fields.map(field=>{
-        const value=examples[field];
+      const fields=twoFile?names.slice(0,2):names;
+      staged=fields.map(field=>{
+        const entry=examples[field];
         const transfer=new DataTransfer();
-        transfer.items.add(new File([value.text],value.filename,{type:"text/csv"}));
+        transfer.items.add(new File([entry.text],entry.filename,{type:"text/csv"}));
         return transfer.files;
       });
-      inputs.forEach((input,index)=>{input.files=staged[index]});
+      // Never override already-selected personal files. All inputs above were empty.
+      costOnly.checked=twoFile;
+      costOnly.dispatchEvent(new Event("change",{bubbles:true}));
+      if(costOnly.checked!==twoFile){
+        throw new Error("Could not select the desired safe comparison mode");
+      }
+      fields.forEach((name,index)=>{inputs[names.indexOf(name)].files=staged[index];});
       form.requestSubmit();
     }catch(error){
-      // If browser-specific synthetic File selection fails, do not submit.
       for(const input of inputs)input.value="";
-      status.textContent="Cannot use the one-click sample in this browser. Download the fictional examples above instead.";
+      costOnly.checked=originalMode;
+      costOnly.dispatchEvent(new Event("change",{bubbles:true}));
+      status.textContent="Browser cannot run this fictional example. Try the downloadable example CSVs.";
     }
-  });
+  }
+  fullButton.addEventListener("click",function(){sample(false);});
+  costButton.addEventListener("click",function(){sample(true);});
 })();"""
 
 def sample_js() -> str:
@@ -120,6 +135,15 @@ advertising, returns and payment fees. It is NOT real profit. None of these
 outputs is an authorized Shopify import command.
 The supplier-joined report contains extra supplier-only fields and MUST NOT
 be used as a Shopify import CSV.</p>
+<p><strong>Two-file example:</strong> Have no proposed export yet?
+Choose the 2-CSV sample button to review the CURRENT Shopify sale price
+against the fictional supplier cost, inspect unmatched SKUs, and download
+five review-only reports. No proposed changes, product-import risks or
+new prices are inferred; no real profit is calculated. Use the 3-CSV
+example only when a proposed export exists.</p>
+<p lang="ko"><strong>두 파일 예제:</strong> 변경 예정 CSV가 없다면
+2개 파일 예제로 기존 판매가와 가상 공급업체 원가를 비교하고
+5개 검토 보고서를 확인하세요. 가격 변경 여부는 검사하지 않습니다.</p>
 <p lang="ko"><strong>한국어 예제:</strong> 가상의 의류 매장 상품 3개를 공급업체 SKU로 비교합니다.
 티셔츠 M 사이즈 가격 29.00 → 31.00, 모자 재고 7 → 6으로 변경됩니다.
 위 CSV 예시 세 개를 내려받고 아래 파일 입력에서 각각 선택해 보세요.
