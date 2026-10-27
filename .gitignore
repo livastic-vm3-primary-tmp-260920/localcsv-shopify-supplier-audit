@@ -1,0 +1,10 @@
+node_modules/
+reports/
+out/
+tmp/
+.env
+.env.*
+.secrets/
+.DS_Store
+*.log
+*.bak

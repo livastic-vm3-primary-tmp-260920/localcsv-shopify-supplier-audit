@@ -1,0 +1,4 @@
+URL handle,Title,SKU,Option1 name,Option1 value,Option2 name,Option2 value,Price,Inventory tracker,Inventory quantity
+cotton-tee,Cotton Tee,TEE-BLK-M,Color,Black,Size,M,29.00,shopify,8
+cotton-tee,,TEE-BLK-L,Color,Black,Size,L,29.00,shopify,4
+wool-cap,Wool Cap,CAP-WOOL,Color,Natural,,,18.00,shopify,7

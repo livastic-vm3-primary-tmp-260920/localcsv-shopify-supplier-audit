@@ -1,0 +1,18 @@
+{
+  "name": "localcsv-shopify-supplier-audit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Free offline Shopify CSV supplier SKU audit and change checker",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "localcsv-audit": "./bin/localcsv-audit.mjs"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT",
+  "author": "LocalCSV Lab contributors"
+}
