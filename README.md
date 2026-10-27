@@ -6,6 +6,18 @@ No signup, npm dependencies, Shopify permissions, customer-file uploads, externa
 
 **Prefer a browser?** Try the free [SKU CSV Join](https://tools.trendbridged.com/tools/join-csv-by-key/), [Compare CSV Files](https://tools.trendbridged.com/tools/compare-csv-files/) and [Shopify CSV Preflight](https://tools.trendbridged.com/tools/shopify-csv-preflight/) tools. No signup required. The file-processing editors contain no third-party advertising scripts; the informational pages show **optional labeled ads only with affirmative visitor consent**.
 
+## New: one-file OFFLINE Shopify CSV preflight (no Node install)
+
+**[Download the fully self-contained HTML](https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/releases/latest/download/shopify-csv-preflight.html)**. Open it directly in a modern browser with internet disconnected if you wish. Select ONE Shopify product CSV, choose Update or Create, then click **Inspect locally**. It reports errors and warnings and offers a CSV findings download. It needs **no account, npm install, analytics, external scripts, network requests or advertising**.
+
+This standalone inspector complements the three-file Node CLI below. It **does not** connect to Shopify, check if image URLs resolve or guarantee an import will succeed. Back up your original export and carefully preserve variant option columns.
+
+**한국어:** [오프라인 Shopify CSV 검사 HTML 파일 다운로드](https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/releases/latest/download/shopify-csv-preflight.html). 다운로드한 HTML을 인터넷이 끊긴 상태에서 브라우저로 열고 상품 CSV를 선택하면 가격·재고·옵션 등의 오류를 확인하고 CSV 보고서를 내려받을 수 있습니다. **회원가입·프로그램 설치·파일 전송·광고 없이** 동작합니다. 실제 Shopify 가져오기를 자동으로 실행하거나 성공을 보장하지 않으므로 원본을 백업하세요.
+
+The HTML source is retained at [offline/shopify-csv-preflight.html](offline/shopify-csv-preflight.html), generated reproducibly using [scripts/build_offline.py](scripts/build_offline.py). Running the CLI requires only Node.js 20; rebuilding or running the entire source test suite also requires Python 3.
+
+---
+
 ## What it checks
 
 Imagine a clothing store with two T-shirt sizes and one cap. You receive a supplier's updated prices and want to see which product fields will change before a bulk import.
