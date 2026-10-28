@@ -8,10 +8,12 @@ No signup, npm dependencies, Shopify permissions, customer-file uploads, externa
 
 ## Search discovery for the educational project pages
 
-The two actual public, noncommercial GitHub Pages educational examples are
+The three actual public, noncommercial GitHub Pages educational pages are
 listed in the [small canonical sitemap](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/sitemap.xml):
-the standalone one-file Shopify preflight example and the browser-local
-three-CSV supplier audit. It intentionally excludes GitHub source downloads,
+the standalone one-file Shopify preflight example, the two-/three-file supplier
+audit, and a substantive [supplier CSV pre-import checklist](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-csv-review/)
+with downloadable blank and fictional reviewer-decision CSV templates.
+It intentionally excludes GitHub source downloads,
 merchant CSV inputs, ad-funded pages on the original domain, and any
 private editor or customer data. The sitemap is reproducible using
 `python3 scripts/build_pages_sitemap.py --check`.
@@ -22,6 +24,30 @@ approval, or earned publisher revenue.** This educational source demo has
 no advertising code or data collection. Search Console for the already-verified
 GitHub Pages host can receive the sitemap without touching the original
 `tools.trendbridged.com` Search Console property.
+
+---
+
+## NEW: private Shopify supplier pre-import review checklist (no signup)
+
+**[Free step-by-step supplier CSV mapping and import-risk checklist](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-csv-review/)**.
+This standalone HTML guide explains a seven-step verification workflow,
+with explicit vendor column-header review, SKU collisions, variant identity,
+Shopify product URL handles, cost/currency limitations, and what to do with
+included blank versus omitted CSV columns. It provides a **blank decision
+evidence sheet CSV** plus a **fully fictional filled example**, and a
+printable ten-point checklist that is never submitted anywhere.
+
+The page links to the official Shopify CSV product guidance and the
+actual browser-local 2/3-file audit. It is independent, open-source,
+noncommercial, ad-free and does not upload customer files or log visitors.
+Google sitemap inclusion is for discovery only; it does **not** establish
+real organic traffic, indexing, Publisher approval, or Adsterra earnings.
+
+**한국어:** [공급업체 CSV·Shopify 가져오기 전 점검표](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-csv-review/)에는
+SKU·원가 열 매핑, 중복 코드, 상품 URL 핸들, 빈 셀 덮어쓰기,
+사이즈·옵션값 변경 위험을 확인하는 절차가 있습니다. 개인정보가 없는
+검토 기록용 빈 CSV와 가상 작성 예제를 무료로 내려받을 수 있습니다.
+이는 실제 Shopify 가져오기를 실행하거나 보증하는 서비스가 아닙니다.
 
 ---
 

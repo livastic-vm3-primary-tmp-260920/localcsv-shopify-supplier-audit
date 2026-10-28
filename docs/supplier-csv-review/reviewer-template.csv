@@ -1,0 +1,1 @@
+check_type,supplier_file,supplier_csv_row,shopify_file,shopify_csv_row,supplier_sku_header,shopify_sku_header,raw_supplier_sku,raw_shopify_sku,supplier_cost_header,supplier_cost_raw,shopify_price_raw,review_decision,reviewer_notes

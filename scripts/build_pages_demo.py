@@ -38,6 +38,11 @@ they cannot replace Shopify's official import requirements.</p>
 Shopify product CSV? Try the <a href="supplier-audit/">free, no-upload
 three-CSV supplier audit educational demo</a>. It generates seven local review
 reports, not Shopify import files, with no advertising or user accounts.</p>
+<p>Before using supplier CSVs in a live store, work through the
+<a href="supplier-csv-review/">free Shopify supplier header-mapping and
+pre-import review checklist</a>. It includes exact source-row evidence steps,
+official Shopify import links and a blank, downloadable reviewer decision
+CSV sheet. No files are collected by that guide.</p>
 </section>
 <h2>Privacy and import limitations</h2>'''
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Two-page genuine-content sitemap for the noncommercial project GitHub Pages demo.
+"""Three-page genuine-content sitemap for the noncommercial project GitHub Pages demo.
 
 This never requests indexing, crawls search engines or generates traffic.
 The dates are the actual calendar dates of the content updates: update them
@@ -20,12 +20,13 @@ DEST=ROOT/"docs/sitemap.xml"
 LOCATIONS=(
     ("index.html",PUBLIC,"2026-10-28"),
     ("supplier-audit/index.html",PUBLIC+"supplier-audit/","2026-10-28"),
+    ("supplier-csv-review/index.html",PUBLIC+"supplier-csv-review/","2026-10-28"),
 )
 SCHEMA="http://www.sitemaps.org/schemas/sitemap/0.9"
 
 
 def build() -> str:
-    if len(LOCATIONS)!=2:
+    if len(LOCATIONS)!=3:
         raise ValueError("Review sitemap public content list before expanding")
     seen=set()
     urls=[]
@@ -61,7 +62,7 @@ def build() -> str:
     lines.append("</urlset>")
     result="\n".join(lines)+"\n"
     root=ET.fromstring(result)
-    assert len(root.findall("{"+SCHEMA+"}url"))==2
+    assert len(root.findall("{"+SCHEMA+"}url"))==3
     return result
 
 
@@ -73,7 +74,7 @@ def main()->int:
         print("GITHUB_EDUCATIONAL_SITEMAP_REPRODUCIBLE",len(output.encode("utf8")),sha256(output.encode("utf8")).hexdigest())
     else:
         DEST.write_text(output,encoding="utf8")
-        print("WRITTEN_TWO_PAGE_EDUCATIONAL_SITEMAP",str(DEST),len(output.encode("utf8")))
+        print("WRITTEN_THREE_PAGE_EDUCATIONAL_SITEMAP",str(DEST),len(output.encode("utf8")))
     return 0
 
 

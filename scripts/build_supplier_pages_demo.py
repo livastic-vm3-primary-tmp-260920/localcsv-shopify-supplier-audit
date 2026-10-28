@@ -194,6 +194,11 @@ not a commercial hosting service or the official Shopify product importer.
 You can also
 <a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/releases/latest/download/shopify-supplier-threeway-audit.html" rel="noopener noreferrer">download the same offline tool</a>
 and use it with internet disconnected.</p>
+<p>Reviewing unfamiliar supplier headers or preparing a real import?
+Open the <a href="../supplier-csv-review/">practical supplier CSV pre-import
+checklist and printable reviewer evidence sheet</a>. It explains where
+automatic mapping stops, how included blank fields affect Shopify imports,
+and how to record manual decisions without uploading private customer data.</p>
 </section>
 <footer><p class="muted">Free, MIT-licensed open-source companion. Not affiliated with Shopify.'''
 

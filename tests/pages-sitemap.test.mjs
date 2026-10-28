@@ -14,14 +14,14 @@ test("actual minimal Github Pages sitemap is byte reproducible without any exter
  assert.match(verify,/GITHUB_EDUCATIONAL_SITEMAP_REPRODUCIBLE/);
  assert.ok(sitemap.startsWith('<?xml version="1.0" encoding="UTF-8"?>'));
  assert.ok(sitemap.includes('xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'));
- assert.equal(sitemap.match(/<url>/g)?.length,2);
- assert.equal(sitemap.match(/<\/url>/g)?.length,2);
- assert.equal(sitemap.match(/<lastmod>2026-10-28<\/lastmod>/g)?.length,2);
+ assert.equal(sitemap.match(/<url>/g)?.length,3);
+ assert.equal(sitemap.match(/<\/url>/g)?.length,3);
+ assert.equal(sitemap.match(/<lastmod>2026-10-28<\/lastmod>/g)?.length,3);
 });
 
-test("two genuine indexable canonical educational pages and ZERO ad or editor URLs",()=>{
- assert.deepEqual(links,[SITE,SITE+"supplier-audit/"]);
- assert.equal(new Set(links).size,2);
+test("three genuine indexable canonical educational pages and ZERO ad or editor URLs",()=>{
+ assert.deepEqual(links,[SITE,SITE+"supplier-audit/",SITE+"supplier-csv-review/"]);
+ assert.equal(new Set(links).size,3);
  assert.ok(!sitemap.includes("tools.trendbridged.com"));
  assert.ok(!sitemap.includes("/editor/"));
  assert.ok(!sitemap.includes("releases/download"));
@@ -29,7 +29,8 @@ test("two genuine indexable canonical educational pages and ZERO ad or editor UR
  assert.ok(!sitemap.includes("<changefreq>"));
  for(const [filename,url] of [
   ["docs/index.html",SITE],
-  ["docs/supplier-audit/index.html",SITE+"supplier-audit/"]
+  ["docs/supplier-audit/index.html",SITE+"supplier-audit/"],
+  ["docs/supplier-csv-review/index.html",SITE+"supplier-csv-review/"]
  ]){
    const data=readFileSync(filename,"utf8");
    assert.equal(data.split('rel="canonical" href="'+url+'"').length,2);

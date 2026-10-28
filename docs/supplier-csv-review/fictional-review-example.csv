@@ -1,0 +1,3 @@
+check_type,supplier_file,supplier_csv_row,shopify_file,shopify_csv_row,supplier_sku_header,shopify_sku_header,raw_supplier_sku,raw_shopify_sku,supplier_cost_header,supplier_cost_raw,shopify_price_raw,review_decision,reviewer_notes
+SKU_MATCH,supplier-custom-headers.csv,2,shopify-current-products.csv,2,Vendor Ref,SKU,TEE-BLK-M,TEE-BLK-M,Net Unit Price,12.00,29.00,NEEDS_REVIEW,Fictional example. Confirm exact variant mapping and common currency; SKU audit alone does not establish product-handle identity.
+PRICE_COST_REVIEW,supplier-custom-headers.csv,4,shopify-current-products.csv,4,Vendor Ref,SKU,CAP-WOOL,CAP-WOOL,Net Unit Price,8.25,18.00,NEEDS_REVIEW,"Fictional example. Price minus supplier cost excludes shipping, tax, payment fees, returns and advertising."
