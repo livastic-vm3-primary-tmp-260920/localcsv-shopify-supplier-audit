@@ -198,7 +198,10 @@ and use it with internet disconnected.</p>
 Open the <a href="../supplier-csv-review/">practical supplier CSV pre-import
 checklist and printable reviewer evidence sheet</a>. It explains where
 automatic mapping stops, how included blank fields affect Shopify imports,
-and how to record manual decisions without uploading private customer data.</p>
+and how to record manual decisions without uploading private customer data.
+The <a href="../supplier-csv-review/#blank-vendor-example">blank Vendor versus
+omitted Vendor CSV worked example</a> includes three fictional, non-importable
+files demonstrating the difference.</p>
 </section>
 <footer><p class="muted">Free, MIT-licensed open-source companion. Not affiliated with Shopify.'''
 

@@ -12,7 +12,7 @@ The three actual public, noncommercial GitHub Pages educational pages are
 listed in the [small canonical sitemap](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/sitemap.xml):
 the standalone one-file Shopify preflight example, the two-/three-file supplier
 audit, and a substantive [supplier CSV pre-import checklist](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-csv-review/)
-with downloadable blank and fictional reviewer-decision CSV templates.
+with downloadable blank and fictional reviewer-decision CSV templates. It now includes a [worked Shopify CSV included-blank vs omitted Vendor example](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-csv-review/#blank-vendor-example) with THREE small fictional CSV review excerpts. Those are **not ready-to-import products**.
 It intentionally excludes GitHub source downloads,
 merchant CSV inputs, ad-funded pages on the original domain, and any
 private editor or customer data. The sitemap is reproducible using
@@ -36,6 +36,8 @@ Shopify product URL handles, cost/currency limitations, and what to do with
 included blank versus omitted CSV columns. It provides a **blank decision
 evidence sheet CSV** plus a **fully fictional filled example**, and a
 printable ten-point checklist that is never submitted anywhere.
+
+**New practical worked case:** Download three entirely fictional CSV excerpts to inspect why a *blank included* Vendor field can clear an existing Shopify value while an *omitted* Vendor column leaves it untouched. The guide explicitly warns that these review-only excerpts are **not Shopify import-ready** and that variant dependencies must be checked separately. [Read the blank-vs-omitted Shopify CSV example](https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-csv-review/#blank-vendor-example).
 
 The page links to the official Shopify CSV product guidance and the
 actual browser-local 2/3-file audit. It is independent, open-source,

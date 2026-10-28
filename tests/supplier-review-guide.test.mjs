@@ -7,6 +7,9 @@ import {parseCSV} from "../lib/csv-core.mjs";
 const guide=readFileSync("docs/supplier-csv-review/index.html","utf8");
 const blank=readFileSync("docs/supplier-csv-review/reviewer-template.csv","utf8");
 const example=readFileSync("docs/supplier-csv-review/fictional-review-example.csv","utf8");
+const sampleCurrent=readFileSync("docs/supplier-csv-review/fictional-current-product.csv","utf8");
+const sampleRisk=readFileSync("docs/supplier-csv-review/fictional-risky-blank-vendor.csv","utf8");
+const sampleOmitted=readFileSync("docs/supplier-csv-review/fictional-omitted-vendor-review-only.csv","utf8");
 const base="https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/";
 const official="https://help.shopify.com/en/manual/products/import-export/using-csv";
 
@@ -17,6 +20,9 @@ test("educational 7-step guide and two private review templates are deterministi
  assert.match(out,/VERIFIED docs\/supplier-csv-review\/index.html/);
  assert.match(out,/VERIFIED docs\/supplier-csv-review\/reviewer-template.csv/);
  assert.match(out,/VERIFIED docs\/supplier-csv-review\/fictional-review-example.csv/);
+ assert.match(out,/VERIFIED docs\/supplier-csv-review\/fictional-current-product.csv/);
+ assert.match(out,/VERIFIED docs\/supplier-csv-review\/fictional-risky-blank-vendor.csv/);
+ assert.match(out,/VERIFIED docs\/supplier-csv-review\/fictional-omitted-vendor-review-only.csv/);
  assert.ok(guide.length>14000,"Needs substantive help not a thin keyword landing page");
  assert.equal(guide.match(/<h1>/g)?.length,1);
  assert.equal(guide.match(/<li>/g)?.length>=7,true);
@@ -117,4 +123,55 @@ test("guide is linked from both educational pages, never injected into 90-file N
  assert.ok(main.includes(base+"supplier-csv-review/"));
  assert.ok(!readFileSync("offline/shopify-supplier-threeway-audit.html","utf8").includes("supplier-csv-review/"),
   "Keep offline executable bundle byte-for-byte unchanged");
+});
+
+test("3 fictional download CSVs concretely demonstrate included-blank vs omitted Vendor without claiming import safety",()=>{
+ const current=parseCSV(sampleCurrent);
+ const risk=parseCSV(sampleRisk);
+ const omitted=parseCSV(sampleOmitted);
+ const vendorCurrent=current[0].indexOf("Vendor");
+ const vendorRisk=risk[0].indexOf("Vendor");
+ assert.equal(vendorCurrent,2);
+ assert.equal(vendorRisk,2);
+ assert.equal(omitted[0].indexOf("Vendor"),-1);
+ assert.equal(current.length,3);
+ assert.equal(risk.length,3);
+ assert.equal(omitted.length,3);
+ assert.deepEqual(current[0],risk[0],"Risk file includes the same complete header with a blank value");
+ assert.deepEqual(omitted[0],current[0].filter(x=>x!=="Vendor"));
+ assert.equal(current[1][vendorCurrent],"Fictional Studio");
+ assert.equal(risk[1][vendorRisk],"","Risk must be a truly blank product Vendor cell");
+ assert.deepEqual(omitted[1],risk[1].filter((_,idx)=>idx!==vendorRisk));
+ assert.equal(current[1][current[0].indexOf("Price")],"29.00");
+ assert.equal(risk[1][risk[0].indexOf("Price")],"31.00");
+ assert.equal(omitted[1][omitted[0].indexOf("Price")],"31.00");
+ for(const source of [current,risk,omitted]){
+   for(const row of source.slice(1)){
+     assert.equal(row[0],"fictional-cotton-tee","Cannot invent different Shopify handles");
+     assert.equal(row.length,source[0].length);
+     assert.ok(row.includes("Size"),"Retain the illustrative variant option-name field");
+     for(const cell of row){
+       assert.ok(!/^[=+@]/u.test(cell),"Never export CSV formulas");
+       assert.ok(!/https?:\/\//iu.test(cell),"No merchant identifiers or outgoing links");
+     }
+   }
+   assert.equal(source[1][source[0].indexOf("SKU")],"FIC-TEE-M");
+   assert.equal(source[2][source[0].indexOf("SKU")],"FIC-TEE-L");
+ }
+ for(const text of [
+   "Shopify CSV blank cells overwrite existing values",
+   'id="blank-vendor-example"',
+   'href="fictional-current-product.csv"',
+   'href="fictional-risky-blank-vendor.csv"',
+   'href="fictional-omitted-vendor-review-only.csv"',
+   "Do NOT import these downloadable demonstration files",
+   "NOT a guarantee the whole import preserves variants",
+   "same as an absent",
+   "공식 한국어 안내",
+   "Vendor",
+   "Option1 name"
+ ])assert.ok(guide.includes(text),text);
+ assert.ok(guide.includes('https://help.shopify.com/en/manual/products/import-export/import-products'));
+ assert.ok(guide.includes('https://help.shopify.com/ko/manual/products/import-export/import-products'));
+ assert.ok(!guide.includes('<script'));
 });
