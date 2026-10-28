@@ -12,7 +12,7 @@ import {readFile, mkdir, writeFile, rm} from "node:fs/promises";
 import {fileURLToPath} from "node:url";
 
 import {joinCSVByKey, readJoinCSV} from "../lib/csv-lookup-core.mjs";
-import {stringifyCSV} from "../lib/csv-core.mjs";
+import {stringifyCSV,parseCSV,detectDelimiter,MAX_INPUT_CHARS} from "../lib/csv-core.mjs";
 import {compareCSVExports, readCSVForComparison} from "../lib/csv-diff-core.mjs";
 import {inspectShopifyProductCSV} from "../lib/shopify-preflight-core.mjs";
 
@@ -36,6 +36,11 @@ const HELP = [
   "  --out NEW_DIR     NEW report directory; existing paths refused",
   "Optional:",
   "  --proposed FILE   Proposed Shopify update CSV; enables before/after diff",
+  "  --supplier-sku-column NAME  Explicit vendor SKU header (requires cost header)",
+  "  --supplier-cost-column NAME Explicit vendor unit cost header (requires SKU header)",
+  "  " ,
+  "Manual column mapping NEVER guesses column labels or SKU/size equivalence.",
+  "Use exact header names from supplier CSV: example Item Code and Wholesale.",
   "",
   "Outputs: 7 local reports when proposed exists, 5 when absent.",
   "Review-only outputs include: summary.json, supplier-matches-NOT-SHOPIFY-",
@@ -60,7 +65,10 @@ export function parseArgs(argv) {
     return {help: true};
   }
   const values = {};
-  const allowed = new Set(["--current", "--supplier", "--proposed", "--out"]);
+  const allowed = new Set([
+    "--current","--supplier","--proposed","--out",
+    "--supplier-sku-column","--supplier-cost-column"
+  ]);
   if (argv.length % 2 !== 0) throw new Error("Options require path values. Use --help.");
   for (let index = 0; index < argv.length; index += 2) {
     const option = argv[index];
@@ -79,10 +87,77 @@ export function parseArgs(argv) {
     supplier: values["--supplier"],
     proposed: values["--proposed"],
     out: values["--out"],
+    ...(values["--supplier-sku-column"]?{supplierSkuColumn:values["--supplier-sku-column"]}:{}),
+    ...(values["--supplier-cost-column"]?{supplierCostColumn:values["--supplier-cost-column"]}:{}),
   };
 }
 
-export function makeReports({current, supplier, proposed}) {
+/** Build a TEMPORARY normalized CSV only after explicit vendor-header choice.
+ *
+ * Never guess a supplier's SKU, size, currency, or price meaning.
+ * Never write changes back to the vendor source. Every other column and
+ * original raw cell is preserved in place; blank lines are retained.
+ * This is NOT creating a Shopify import CSV or resolving ambiguous SKUs.
+ */
+export function normalizeSupplierColumns(supplierText,{
+  supplierSkuColumn,supplierCostColumn
+}={}){
+  const selectedSKU=(typeof supplierSkuColumn==="string"?supplierSkuColumn.trim():"");
+  const selectedCost=(typeof supplierCostColumn==="string"?supplierCostColumn.trim():"");
+  if(!selectedSKU&&!selectedCost){
+    if(supplierSkuColumn!==undefined||supplierCostColumn!==undefined){
+      throw new Error("Supplier mapping requires BOTH source SKU and Cost headers.");
+    }
+    return {csv:supplierText,mapping:null};
+  }
+  if(!selectedSKU||!selectedCost){
+    throw new Error("Supplier mapping requires BOTH source SKU and Cost headers.");
+  }
+  if(selectedSKU===selectedCost){
+    throw new Error("Supplier SKU and unit cost must be DIFFERENT source columns.");
+  }
+  const dataset=readJoinCSV(supplierText,"Original supplier CSV");
+  if(!dataset.headers.includes(selectedSKU)){
+    throw new Error("Supplier CSV missing explicitly chosen SKU header: "+selectedSKU);
+  }
+  if(!dataset.headers.includes(selectedCost)){
+    throw new Error("Supplier CSV missing explicitly chosen Cost header: "+selectedCost);
+  }
+  const newHeaders=dataset.headers.map(field=>
+    field===selectedSKU?"SKU":field===selectedCost?"Cost":field
+  );
+  const caseInsensitive=newHeaders.map(field=>field.toLocaleLowerCase("en"));
+  if(new Set(caseInsensitive).size!==caseInsensitive.length){
+    throw new Error("Chosen header mapping collides with an EXISTING SKU/Cost column. Fix the ambiguous vendor CSV before review.");
+  }
+  const table=parseCSV(supplierText,detectDelimiter(supplierText));
+  if(!table.length||table[0].length!==newHeaders.length){
+    throw new Error("Supplier CSV structure changed during local mapping.");
+  }
+  // Only replace the header row, never variant values, SKU identifiers or costs.
+  const transformed=stringifyCSV([newHeaders,...table.slice(1)],",",false);
+  if(transformed.length>MAX_INPUT_CHARS){
+    throw new Error("Mapped supplier CSV exceeds the two-million-character limit.");
+  }
+  return {
+    csv:transformed,
+    mapping:{
+      userSelected:true,
+      sourceSkuColumn:selectedSKU,
+      sourceCostColumn:selectedCost,
+      normalizedSkuColumn:"SKU",
+      normalizedCostColumn:"Cost",
+      originalOtherColumnsPreserved:true,
+      originalSupplierFileModified:false,
+      originalDataRows:dataset.records.length,
+      limitation:"Exact header renaming ONLY: does not guess SKU, size, colour, currency, discounts, products, or authorize Shopify imports."
+    }
+  };
+}
+
+export function makeReports({current, supplier, proposed,
+  supplierSkuColumn,supplierCostColumn
+}) {
   // OMITTING proposed is an explicit two-file supplier-cost review.
   // Never pretend that any product changes have been checked.
   const proposedSupplied = typeof proposed === "string";
@@ -91,10 +166,14 @@ export function makeReports({current, supplier, proposed}) {
   }
   // All input validation takes place BEFORE touching the output filesystem.
   // Ambiguous supplier duplicates and CSV comparison keys cause an error.
+  const mapped=normalizeSupplierColumns(supplier,{
+    supplierSkuColumn,supplierCostColumn
+  });
+  const vendorCSV=mapped.csv;
   const before = inspectShopifyProductCSV(current, {mode: "update"});
   const after = proposedSupplied ?
     inspectShopifyProductCSV(proposed, {mode: "update"}) : null;
-  const joined = joinCSVByKey(current, supplier, {
+  const joined = joinCSVByKey(current, vendorCSV, {
     primaryKey: "SKU", lookupKey: "SKU", mode: "left", caseSensitive: true,
   });
   const diff = proposedSupplied ?
@@ -170,14 +249,16 @@ export function makeReports({current, supplier, proposed}) {
   // conversion are unknown. NEVER assume vendor CSV uses store currency.
   // Read valid input tables only; the join and diff above already validate
   // unique supplier SKU and unique proposed/current Shopify SKU keys.
-  const vendorData=readJoinCSV(supplier,"Supplier cost CSV");
+  const vendorData=readJoinCSV(vendorCSV,"Supplier cost CSV");
   const costNames=vendorData.headers.filter(name =>
     ["cost","cost per item","unit cost","wholesale cost"].includes(name.toLowerCase()));
   const priceNames=newData.headers.filter(name =>
     ["Price","Variant Price"].includes(name));
   const oldPriceNames=oldData.headers.filter(name =>
     ["Price","Variant Price"].includes(name));
-  const costField=costNames.length===1?costNames[0]:null;
+  // Explicit reviewer choice overrides ambiguous vendor cost aliases.
+  const costField=mapped.mapping?"Cost":
+    costNames.length===1?costNames[0]:null;
   const priceField=priceNames.length===1?priceNames[0]:null;
   const priorPriceField=oldPriceNames.length===1?oldPriceNames[0]:null;
   const vendorSkuIndex=vendorData.headers.indexOf("SKU");
@@ -271,6 +352,7 @@ export function makeReports({current, supplier, proposed}) {
     proposedFileSupplied:proposedSupplied,
     productChangeComparisonPerformed:proposedSupplied,
     supplierJoin: joined.metrics,
+    explicitlyConfirmedSupplierColumnMapping:mapped.mapping,
     changedProductRecords: proposedSupplied?diff.metrics:null,
     possibleImportRisks: proposedSupplied?importRisk:null,
     supplierCostMarginReview: margin,
@@ -283,6 +365,9 @@ export function makeReports({current, supplier, proposed}) {
       "Shopify product updates are based on URL handle and dependent variant columns, not solely SKU.",
       "The supplier-joined analysis has extra Cost/Supplier fields; NEVER import it directly into Shopify.",
       "Keep the original export; review duplicate/blank SKU exceptions and changed variants.",
+      ...(mapped.mapping?[
+        "Supplier column mapping is explicitly chosen by the reviewer. It only renames headers in TEMPORARY in-memory CSV; no automatic match, size conversion, product update or source file modification."
+      ]:[]),
       "Supplier prices are confidential: keep generated reports local.",
       "Margin checks are SIMPLE price-minus-supplier-cost arithmetic, never real profit or an instruction to price products.",
       "Verify same-currency input, tax, discounts, refunds, payment processing, shipping and advertising costs separately.",
@@ -329,7 +414,11 @@ export async function audit(args) {
   }
   if (inputs.includes(output)) throw new Error("Output may not replace an input CSV file.");
   const [current, supplier, proposed] = await Promise.all(inputs.map(p => readFile(p, "utf8")));
-  const {summary, files} = makeReports({current, supplier, proposed});
+  const {summary, files} = makeReports({
+    current,supplier,proposed,
+    supplierSkuColumn:args.supplierSkuColumn,
+    supplierCostColumn:args.supplierCostColumn
+  });
   // New directory only: existing directories, symlinks and files fail
   // closed; report filenames use exclusive creates and cannot overwrite.
   await mkdir(output);

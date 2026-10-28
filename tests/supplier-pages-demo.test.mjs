@@ -97,6 +97,8 @@ function fakeSamplePage(){
  const btn2={addEventListener(name,callback){assert.equal(name,"click");this.click=callback;}};
  const form={count:0,requestSubmit(){this.count++}};
  const status={textContent:""};
+ const mapSKU={value:""};
+ const mapCost={value:""};
  const fields=Object.fromEntries(names.map(name=>[name,{
    files:[],value:"",disabled:false,required:true
  }]));
@@ -113,6 +115,8 @@ function fakeSamplePage(){
    if(id==="use-demo-inputs")return btn;
    if(id==="use-two-file-demo-inputs")return btn2;
    if(id==="cost-only")return checkbox;
+   if(id==="supplier-sku-column")return mapSKU;
+   if(id==="supplier-cost-column")return mapCost;
    if(id==="sku-audit-form")return form;
    if(id==="status")return status;
    return fields[id]||null;
@@ -132,7 +136,7 @@ function fakeSamplePage(){
    localStorage:{getItem(){throw Error("Never inspect consent");}},
    navigator:{sendBeacon(){throw Error("Never report clicks");}}
  },{timeout:1000,contextCodeGeneration:{strings:false,wasm:false}});
- return {btn,btn2,checkbox,form,status,fields,names,sampleData};
+ return {btn,btn2,checkbox,mapSKU,mapCost,form,status,fields,names,sampleData};
 }
 
 test("three-file example sets ONLY bundled fictional data and never overrides user files",()=>{
@@ -184,4 +188,30 @@ test("sample workflow is opt-in and remains isolated from Adsterra, analytics an
  assert.ok(audit.includes("두 파일 예제"));
  assert.ok(audit.includes("NEVER replaces existing selections silently"));
  assert.ok(audit.includes("connect-src 'none'"));
+});
+
+test("fictional examples refuse existing manual supplier column mappings",()=>{
+ const u=fakeSamplePage();
+ u.mapSKU.value="Vendor Ref";
+ u.mapCost.value="Net Unit Price";
+ u.btn.click();
+ u.btn2.click();
+ assert.equal(u.form.count,0);
+ assert.match(u.status.textContent,/Clear custom supplier column mappings/);
+ assert.equal(u.fields.current.files.length,0);
+ assert.equal(u.fields.supplier.files.length,0);
+ assert.equal(u.checkbox.checked,false);
+});
+
+test("manual vendor header mapping tutorial references only a truly fictional CSV",()=>{
+ assert.ok(audit.includes("supplier-custom-headers.csv"));
+ assert.ok(audit.includes("Vendor Ref"));
+ assert.ok(audit.includes("Net Unit Price"));
+ assert.ok(audit.includes("Show supplier column names locally"));
+ assert.ok(audit.includes("No automatic SKU synonym/size/colour"));
+ assert.ok(audit.includes("original supplier CSV stays unchanged"));
+ assert.ok(audit.includes("공급업체 열 이름 직접 지정"));
+ const fixture=readFileSync("fixtures/supplier-custom-headers.csv","utf8");
+ assert.match(fixture,/^Vendor Ref,Net Unit Price,Vendor Name/);
+ assert.ok(!fixture.includes("https://"));
 });

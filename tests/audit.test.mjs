@@ -7,7 +7,7 @@ import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {execFileSync, spawnSync} from "node:child_process";
 
-import {parseArgs, makeReports, audit} from "../bin/localcsv-audit.mjs";
+import {parseArgs, normalizeSupplierColumns, makeReports, audit} from "../bin/localcsv-audit.mjs";
 import {parseCSV} from "../lib/csv-core.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -28,7 +28,9 @@ test("help documents THREE mandatory options and optional proposed export", () =
   });
   for (const expected of [
     "--current", "--supplier", "--proposed", "--out NEW_DIR",
-    "TWO-FILE option", "Optional", "5 when absent", "never import", "Shopify",
+    "TWO-FILE option", "Optional", "5 when absent",
+    "--supplier-sku-column", "--supplier-cost-column", "NEVER guesses",
+    "never import", "Shopify",
     "https://tools.trendbridged.com/tools/join-csv-by-key/",
   ]) assert.ok(help.toLowerCase().includes(expected.toLowerCase()), expected);
 });
@@ -420,4 +422,136 @@ test("two-file report truthfully flags supplier cost higher than current sale pr
  assert.equal(rows[1][6],"BELOW_SUPPLIER_COST");
  assert.equal(rows[1][4],"'-6.0000"); // spreadsheet formula protection
  assert.equal(result.summary.changedProductRecords,null);
+});
+
+test("exact reviewer-chosen supplier headers preserve vendor records and yield correct 2-file margin review",async()=>{
+ const current=await readFile(inputs.current,"utf8");
+ const source=await readFile(fixture("supplier-custom-headers.csv"),"utf8");
+ const original=source;
+ const selected={supplierSkuColumn:"Vendor Ref",supplierCostColumn:"Net Unit Price"};
+ const result=makeReports({current,supplier:source,...selected});
+ assert.equal(source,original,"Supplier source CSV cannot be changed");
+ assert.equal(result.summary.comparisonMode,"TWO_CSV_SUPPLIER_COST_ONLY");
+ assert.equal(result.summary.supplierJoin.matched,3);
+ assert.equal(result.summary.supplierCostMarginReview.validComparisons,3);
+ assert.equal(result.summary.supplierCostMarginReview.costColumn,"Cost");
+ assert.equal(result.summary.changedProductRecords,null);
+ assert.equal(result.files.size,5);
+ const meta=result.summary.explicitlyConfirmedSupplierColumnMapping;
+ assert.equal(meta.userSelected,true);
+ assert.equal(meta.sourceSkuColumn,"Vendor Ref");
+ assert.equal(meta.sourceCostColumn,"Net Unit Price");
+ assert.equal(meta.normalizedSkuColumn,"SKU");
+ assert.equal(meta.originalSupplierFileModified,false);
+ assert.equal(meta.originalSupplierFileModified,false);
+ assert.equal(meta.originalDataRows,3);
+ const joined=parseCSV(result.files.get("supplier-matches-NOT-SHOPIFY-IMPORT.csv").replace(/^\uFEFF/,""));
+ assert.ok(joined[0].includes("Vendor Name"));
+ assert.ok(joined[0].includes("Cost"));
+ assert.ok(!joined[0].includes("Vendor Ref"));
+ const margin=parseCSV(result.files.get("supplier-margin-REVIEW-ONLY.csv").replace(/^\uFEFF/,""));
+ assert.equal(margin[1][1],"12.00");
+ assert.equal(margin[1][4],"17.0000");
+ assert.equal(result.summary.dataUploaded,false);
+});
+
+test("three-file reviewer-chosen SKU/Cost headers preserve exact field-diff and manual-change requirements",async()=>{
+ const current=await readFile(inputs.current,"utf8");
+ const proposed=await readFile(inputs.proposed,"utf8");
+ const supplier=await readFile(fixture("supplier-custom-headers.csv"),"utf8");
+ const res=makeReports({current,proposed,supplier,supplierSkuColumn:"Vendor Ref",supplierCostColumn:"Net Unit Price"});
+ assert.equal(res.files.size,7);
+ assert.equal(res.summary.changedProductRecords.changed,2);
+ assert.equal(res.summary.supplierJoin.matched,3);
+ assert.equal(res.summary.supplierCostMarginReview.validComparisons,3);
+ assert.equal(res.summary.manualReviewRequired,true);
+ assert.equal(res.summary.explicitlyConfirmedSupplierColumnMapping.sourceCostColumn,"Net Unit Price");
+});
+
+test("unconfirmed, partial, duplicate, incorrect and colliding source column maps fail closed",async()=>{
+ const source=await readFile(fixture("supplier-custom-headers.csv"),"utf8");
+ assert.throws(()=>normalizeSupplierColumns(source,{supplierSkuColumn:"Vendor Ref"}),
+   /requires BOTH/);
+ assert.throws(()=>normalizeSupplierColumns(source,{supplierCostColumn:"Net Unit Price"}),
+   /requires BOTH/);
+ assert.throws(()=>normalizeSupplierColumns(source,{
+    supplierSkuColumn:"Vendor Ref",supplierCostColumn:"Vendor Ref"
+ }),/DIFFERENT/);
+ assert.throws(()=>normalizeSupplierColumns(source,{
+    supplierSkuColumn:"VENDOR REF",supplierCostColumn:"Net Unit Price"
+ }),/missing explicitly chosen SKU header/);
+ assert.throws(()=>normalizeSupplierColumns(source,{
+    supplierSkuColumn:"Vendor Ref",supplierCostColumn:"Missing Cost"
+ }),/missing explicitly chosen Cost header/);
+ const colliding=source.replace("Vendor Ref,Net Unit Price,Vendor Name","SKU,Vendor Ref,Net Unit Price,Vendor Name")
+  .replace("TEE-BLK-M,12.00,Fictional","OTHER1,TEE-BLK-M,12.00,Fictional")
+  .replace("TEE-BLK-L,12.50,Fictional","OTHER2,TEE-BLK-L,12.50,Fictional")
+  .replace("CAP-WOOL,8.25,Fictional","OTHER3,CAP-WOOL,8.25,Fictional");
+ assert.throws(()=>normalizeSupplierColumns(colliding,{
+    supplierSkuColumn:"Vendor Ref",supplierCostColumn:"Net Unit Price"
+ }),/collides with an EXISTING SKU\/Cost/);
+ const current=await readFile(inputs.current,"utf8");
+ assert.throws(()=>makeReports({current,supplier:source}),
+   /selected key: SKU/);
+});
+
+test("mapped supplier other raw values and physical CSV row ordering are preserved without spreadsheet formulas running",async()=>{
+ const source=[
+  "Vendor Ref;Net Unit Price;Vendor Name;Untrusted note",
+  "",
+  'TEE-BLK-M;12.00;"Fictional, Inc.";=SUM(1+2)',
+  "TEE-BLK-L;12.50;Another supplier;item noted",
+  "CAP-WOOL;8.25;Fictional Mill;last"
+ ].join("\r\n");
+ const out=normalizeSupplierColumns(source,{
+  supplierSkuColumn:"Vendor Ref",supplierCostColumn:"Net Unit Price"
+ });
+ assert.ok(source.startsWith("Vendor Ref;Net Unit Price"));
+ assert.deepEqual(out.mapping.originalDataRows,3);
+ const table=parseCSV(out.csv);
+ assert.equal(table[0][0],"SKU");
+ assert.equal(table[0][1],"Cost");
+ assert.equal(table[0][2],"Vendor Name");
+ assert.equal(table[0][3],"Untrusted note");
+ assert.equal(table[1].length,1,"Preserves original blank physical CSV line");
+ assert.equal(table[2][0],"TEE-BLK-M");
+ assert.equal(table[2][2],"Fictional, Inc.");
+ assert.equal(table[2][3],"=SUM(1+2)");
+ const current=await readFile(inputs.current,"utf8");
+ const result=makeReports({current,supplier:source,
+  supplierSkuColumn:"Vendor Ref",supplierCostColumn:"Net Unit Price"});
+ const joined=parseCSV(result.files.get("supplier-matches-NOT-SHOPIFY-IMPORT.csv").replace(/^\uFEFF/,""));
+ assert.ok(joined[1].at(-1).startsWith("'=SUM("),"Protect formula-looking original values in downloaded reports");
+ assert.equal(result.files.size,5);
+});
+
+test("actual CLI supports manually selected source columns and keeps outputs private",async()=>{
+ const supplier=fixture("supplier-custom-headers.csv");
+ const parsed=parseArgs(["--current",inputs.current,"--supplier",supplier,
+   "--out","/tmp/out","--supplier-sku-column","Vendor Ref",
+   "--supplier-cost-column","Net Unit Price"]);
+ assert.equal(parsed.supplierSkuColumn,"Vendor Ref");
+ assert.equal(parsed.supplierCostColumn,"Net Unit Price");
+ const temp=await mkdtemp(path.join(os.tmpdir(),"localcsv-manual-vendor-mapping-"));
+ try{
+  const destination=path.join(temp,"out");
+  const command=spawnSync(process.execPath,[CLI,
+     "--current",inputs.current,"--supplier",supplier,
+     "--supplier-sku-column","Vendor Ref",
+     "--supplier-cost-column","Net Unit Price",
+     "--out",destination
+  ],{cwd:ROOT,encoding:"utf8",timeout:9000});
+  assert.equal(command.status,0,command.stderr);
+  const out=JSON.parse(command.stdout);
+  assert.equal(out.reportsWritten,5);
+  assert.equal(out.proposedFileSupplied,false);
+  const content=JSON.parse(await readFile(path.join(destination,"summary.json"),"utf8"));
+  assert.equal(content.explicitlyConfirmedSupplierColumnMapping.sourceSkuColumn,"Vendor Ref");
+  assert.equal(content.supplierCostMarginReview.belowSupplierCost,0);
+  for(const name of await readdir(destination)){
+    assert.equal((await stat(path.join(destination,name))).mode&0o077,0);
+  }
+ }finally{
+  await rm(temp,{recursive:true,force:true});
+ }
 });

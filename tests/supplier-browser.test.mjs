@@ -27,9 +27,11 @@ function page({source=INPUTS}={}){
  for(const name of ["sku-audit-form","run","status","results","summary","reports","clear",
                     "review-preview","changed-fields-preview","import-risk-summary","import-risk-examples",
                     "margin-panel","margin-overview","margin-rows",
+                    "supplier-mapping-summary","supplier-header-list","show-supplier-headers",
+                    "supplier-sku-column","supplier-cost-column",
                     "cost-only","current","supplier","proposed"]){
    elements[name]={
-      id:name,textContent:"",disabled:false,hidden:false,checked:false,required:true,files:[],
+      id:name,textContent:"",value:"",disabled:false,hidden:false,checked:false,required:true,files:[],
       children:[],addEventListener(event,callback){events[name+":"+event]=callback;},
       append(child){this.children.push(child);},
       replaceChildren(){this.children=[];},
@@ -82,7 +84,12 @@ function page({source=INPUTS}={}){
     setTwoFile(value=true){
       elements["cost-only"].checked=value;
       events["cost-only:change"]();
-    }
+    },
+    setVendorHeaderMapping(sku,cost){
+      elements["supplier-sku-column"].value=sku;
+      elements["supplier-cost-column"].value=cost;
+    },
+    async showHeaders(){await events["show-supplier-headers:click"]();}
  };
 }
 
@@ -343,4 +350,62 @@ test("both modes require their actual source files, and switching hides stale re
  ui.setTwoFile(false);
  await ui.submit();
  assert.match(ui.elements.status.textContent,/Choose all three CSV files/);
+});
+
+test("custom supplier headers map only after reviewer selects exact SKU and cost fields",async()=>{
+ const vendor=readFileSync("fixtures/supplier-custom-headers.csv","utf8");
+ const ui=page({source:{...INPUTS,supplier:vendor}});
+ ui.setVendorHeaderMapping("Vendor Ref","Net Unit Price");
+ await ui.showHeaders();
+ assert.match(ui.elements["supplier-header-list"].textContent,/Vendor Ref/);
+ assert.match(ui.elements["supplier-header-list"].textContent,/Net Unit Price/);
+ assert.equal(ui.elements["supplier-header-list"].children.length,0);
+ await ui.submit();
+ assert.equal(ui.elements.results.hidden,false);
+ assert.equal(ui.objectURLs.length,7);
+ assert.match(ui.elements["supplier-mapping-summary"].textContent,/reviewer-confirmed mapping ONLY/);
+ assert.match(ui.elements["supplier-mapping-summary"].textContent,/Vendor Ref.*SKU/);
+ assert.match(ui.elements["margin-overview"].textContent,/3 calculated/);
+ assert.equal(ui.elements["margin-rows"].children.length,3);
+ const report=JSON.parse(await ui.objectURLs[6].blob.text());
+ assert.equal(report.explicitlyConfirmedSupplierColumnMapping.sourceSkuColumn,"Vendor Ref");
+ assert.equal(report.explicitlyConfirmedSupplierColumnMapping.sourceCostColumn,"Net Unit Price");
+ assert.equal(report.explicitlyConfirmedSupplierColumnMapping.originalSupplierFileModified,false);
+ const joined=await ui.objectURLs[0].blob.text();
+ assert.ok(joined.includes("Vendor Name"));
+ assert.ok(joined.includes("Fictional Mill"));
+ ui.clear();
+ assert.equal(ui.elements["supplier-sku-column"].value,"");
+ assert.equal(ui.elements["supplier-cost-column"].value,"");
+ assert.equal(ui.elements["supplier-header-list"].textContent,"");
+});
+
+test("custom vendor header mapping cannot be half filled, invalid or silently guessed",async()=>{
+ const vendor=readFileSync("fixtures/supplier-custom-headers.csv","utf8");
+ const absent=page({source:{...INPUTS,supplier:vendor}});
+ await absent.submit();
+ assert.equal(absent.objectURLs.length,0);
+ assert.match(absent.elements.status.textContent,/selected key: SKU/);
+ const onlySku=page({source:{...INPUTS,supplier:vendor}});
+ onlySku.setVendorHeaderMapping("Vendor Ref","");
+ await onlySku.submit();
+ assert.equal(onlySku.objectURLs.length,0);
+ assert.match(onlySku.elements.status.textContent,/BOTH exact source/);
+ const wrong=page({source:{...INPUTS,supplier:vendor}});
+ wrong.setVendorHeaderMapping("Not There","Net Unit Price");
+ await wrong.submit();
+ assert.equal(wrong.objectURLs.length,0);
+ assert.match(wrong.elements.status.textContent,/missing explicitly chosen SKU header/);
+});
+
+test("changed supplier file discards previous source mappings instead of applying stale headers",async()=>{
+ const ui=page();
+ ui.setVendorHeaderMapping("Vendor Ref","Net Unit Price");
+ ui.elements["supplier-header-list"].textContent="Old headers";
+ ui.events["supplier:change"]();
+ assert.equal(ui.elements["supplier-sku-column"].value,"");
+ assert.equal(ui.elements["supplier-cost-column"].value,"");
+ assert.equal(ui.elements["supplier-header-list"].textContent,"");
+ await ui.submit();
+ assert.equal(ui.objectURLs.length,7);
 });

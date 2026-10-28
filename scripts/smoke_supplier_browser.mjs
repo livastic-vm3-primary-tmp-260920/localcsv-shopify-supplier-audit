@@ -32,7 +32,12 @@ try{
  const argv=process.argv.slice(2);
 const runFictionalSample=argv.includes("--sample")||argv.includes("--two-sample");
 const runTwoFile=argv.includes("--two")||argv.includes("--two-sample");
-const requestedTarget=argv.find(value=>!["--sample","--two","--two-sample"].includes(value));
+const useVendorMapping=argv.includes("--vendor-map");
+if(useVendorMapping&&runFictionalSample){
+  throw Error("Vendor column mapping must be explicitly tested with native CSV files");
+}
+const requestedTarget=argv.find(value=>
+  !["--sample","--two","--two-sample","--vendor-map"].includes(value));
 const target=requestedTarget?.startsWith("https://")?requestedTarget:
   pathToFileURL(requestedTarget?path.resolve(requestedTarget):
     path.join(ROOT,"offline/shopify-supplier-threeway-audit.html")).href;
@@ -99,7 +104,8 @@ const target=requestedTarget?.startsWith("https://")?requestedTarget:
  if(!runFictionalSample){
    const inputs={
      current:"fixtures/shopify-current-products.csv",
-     supplier:"fixtures/supplier-price-update.csv",
+     supplier:useVendorMapping?"fixtures/supplier-custom-headers.csv":
+       "fixtures/supplier-price-update.csv",
      ...(runTwoFile?{}:{proposed:"fixtures/shopify-proposed-products.csv"}),
    };
    for(const [name,relative] of Object.entries(inputs)){
@@ -114,6 +120,30 @@ const target=requestedTarget?.startsWith("https://")?requestedTarget:
      runTwoFile?"#use-two-file-demo-inputs":"#use-demo-inputs"});
    assert.ok(button.nodeId,"Missing one-click fictional sample button");
  }
+ if(useVendorMapping){
+   await cdp("Runtime.evaluate",{
+     expression:"document.getElementById('show-supplier-headers').click()",
+     returnByValue:true
+   });
+   let named=false;
+   for(let i=0;i<20;i++){
+     const entry=await cdp("Runtime.evaluate",{
+       expression:"document.getElementById('supplier-header-list').textContent",
+       returnByValue:true
+     });
+     if(entry.result.value?.includes("Vendor Ref")&&
+        entry.result.value.includes("Net Unit Price")){
+       named=true;
+       break;
+     }
+     await sleep(40);
+   }
+   assert.ok(named,"Review page did not show exact fictional original vendor column names");
+   await cdp("Runtime.evaluate",{
+     expression:"document.getElementById('supplier-sku-column').value='Vendor Ref'; document.getElementById('supplier-cost-column').value='Net Unit Price';",
+     returnByValue:true
+   });
+ }
  const beforeAuditRequestCount=requested;
  await cdp("Runtime.evaluate",{
    expression:runFictionalSample?(runTwoFile?
@@ -125,7 +155,7 @@ const target=requestedTarget?.startsWith("https://")?requestedTarget:
  let observed;
  for(let i=0;i<45;i++){
    const payload=await cdp("Runtime.evaluate",{
-      expression:"JSON.stringify({status:document.getElementById('status').textContent,summary:document.getElementById('summary').textContent,shown:!document.getElementById('results').hidden,previewShown:!document.getElementById('review-preview').hidden,previewRows:[...document.querySelectorAll('#changed-fields-preview li')].map(e=>e.textContent),riskText:document.getElementById('import-risk-summary').textContent,marginText:document.getElementById('margin-overview').textContent,marginRows:[...document.querySelectorAll('#margin-rows li')].map(a=>a.textContent),marginShown:!document.getElementById('margin-panel').hidden,reports:[...document.querySelectorAll('#reports a')].map(a=>a.download)})",
+      expression:"JSON.stringify({status:document.getElementById('status').textContent,summary:document.getElementById('summary').textContent,shown:!document.getElementById('results').hidden,previewShown:!document.getElementById('review-preview').hidden,previewRows:[...document.querySelectorAll('#changed-fields-preview li')].map(e=>e.textContent),riskText:document.getElementById('import-risk-summary').textContent,marginText:document.getElementById('margin-overview').textContent,marginRows:[...document.querySelectorAll('#margin-rows li')].map(a=>a.textContent),marginShown:!document.getElementById('margin-panel').hidden,vendorMapping:document.getElementById('supplier-mapping-summary').textContent,reports:[...document.querySelectorAll('#reports a')].map(a=>a.download)})",
       returnByValue:true
    });
    observed=JSON.parse(payload.result.value);
@@ -165,6 +195,13 @@ const target=requestedTarget?.startsWith("https://")?requestedTarget:
    assert.ok(observed.reports.includes("proposed-changes.csv"));
  }
  assert.match(observed.marginText,/SAME-CURRENCY ASSUMED/);
+ if(useVendorMapping){
+   assert.match(observed.vendorMapping,/reviewer-confirmed mapping ONLY/);
+   assert.match(observed.vendorMapping,/Vendor Ref/);
+   assert.match(observed.vendorMapping,/Net Unit Price/);
+ }else{
+   assert.match(observed.vendorMapping,/no mappings guessed/i);
+ }
  assert.ok(observed.reports.includes("supplier-margin-REVIEW-ONLY.csv"));
  assert.ok(observed.reports.includes("supplier-matches-NOT-SHOPIFY-IMPORT.csv"));
  assert.equal(requested,beforeAuditRequestCount,"The CSV audit triggered network requests");
@@ -172,6 +209,7 @@ const target=requestedTarget?.startsWith("https://")?requestedTarget:
    workflow:runFictionalSample?(runTwoFile?"one-click TWO-file fictional sample":"one-click THREE-file fictional sample"):
      (runTwoFile?"TWO user-selected CSVs":"THREE user-selected CSVs"),
    reports:observed.reports.length,summary:observed.summary,
+   explicitVendorHeaderMapping:useVendorMapping,
    networkRequestsDuringAudit:requested-beforeAuditRequestCount
  }));
 }finally{

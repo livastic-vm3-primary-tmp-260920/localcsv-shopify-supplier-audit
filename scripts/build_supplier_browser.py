@@ -18,14 +18,15 @@ DEST = ROOT / "offline/shopify-supplier-threeway-audit.html"
 
 def extract_cli_reports() -> str:
     text = (ROOT / "bin/localcsv-audit.mjs").read_text(encoding="utf8")
-    start = "export function makeReports({current, supplier, proposed}) {"
+    start = "export function normalizeSupplierColumns(supplierText,{"
     end = "\nexport async function audit(args) {"
     if text.count(start) != 1 or text.count(end) != 1:
         raise ValueError("CLI report API changed: review before rebuilding")
     block = text[text.index(start):text.index(end)]
     if "readFile(" in block or "writeFile(" in block or "fetch(" in block:
         raise ValueError("CLI reports no longer pure")
-    return block.replace("export function makeReports", "function makeReports", 1)
+    return block.replace("export function normalizeSupplierColumns", "function normalizeSupplierColumns", 1).replace(
+        "export function makeReports","function makeReports",1)
 
 
 APP = r"""
@@ -47,6 +48,12 @@ APP = r"""
   const clear=document.getElementById("clear");
   const costOnly=document.getElementById("cost-only");
   const proposedInput=document.getElementById("proposed");
+  const supplierInput=document.getElementById("supplier");
+  const showVendorColumns=document.getElementById("show-supplier-headers");
+  const vendorHeaderList=document.getElementById("supplier-header-list");
+  const vendorSKUInput=document.getElementById("supplier-sku-column");
+  const vendorCostInput=document.getElementById("supplier-cost-column");
+  const vendorMappingSummary=document.getElementById("supplier-mapping-summary");
   let urls=[];
 
   function resetResults(){
@@ -57,6 +64,7 @@ APP = r"""
     riskList.replaceChildren();
     marginRows.replaceChildren();
     marginOverview.textContent="";
+    vendorMappingSummary.textContent="";
     marginPanel.hidden=true;
     riskSummary.textContent="";
     preview.hidden=true;
@@ -84,15 +92,29 @@ APP = r"""
       status.textContent="Each CSV must be under 2.2 MB. / 각 파일은 2.2 MB 미만이어야 합니다.";
       return;
     }
+    const sourceSKU=vendorSKUInput.value.trim();
+    const sourceCost=vendorCostInput.value.trim();
+    if(Boolean(sourceSKU)!==Boolean(sourceCost)){
+      status.textContent="Enter BOTH exact source SKU and cost column headers. / 공급업체 SKU·원가 열 이름을 모두 입력하세요.";
+      return;
+    }
     run.disabled=true;
     status.textContent="Checking locally. Nothing is uploaded. / 브라우저 내부에서 검사 중입니다.";
     try{
       const texts=await Promise.all(files.map(file=>file.text()));
       const result=makeReports({
         current:texts[0], supplier:texts[1],
-        proposed:twoFile?undefined:texts[2]
+        proposed:twoFile?undefined:texts[2],
+        supplierSkuColumn:sourceSKU||undefined,
+        supplierCostColumn:sourceCost||undefined
       });
       const m=result.summary;
+      const mapping=m.explicitlyConfirmedSupplierColumnMapping;
+      vendorMappingSummary.textContent=mapping?
+        "Exact reviewer-confirmed mapping ONLY: supplier '"+mapping.sourceSkuColumn+
+        "' → SKU, '"+mapping.sourceCostColumn+
+        "' → Cost. No automatic SKU, size, currency, colour, or product matching.":
+        "Using supplier's existing canonical SKU and cost headers. No mappings guessed.";
       summary.textContent=
         "Supplier matches: "+m.supplierJoin.matched+
         " | Unmatched: "+m.supplierJoin.unmatched+
@@ -180,6 +202,37 @@ APP = r"""
     }
   });
 
+  showVendorColumns.addEventListener("click",async function(){
+    const file=supplierInput.files[0];
+    if(!file){
+      vendorHeaderList.textContent="Choose a supplier CSV first. / 공급업체 CSV를 먼저 선택하세요.";
+      return;
+    }
+    if(file.size>2200000){
+      vendorHeaderList.textContent="Supplier CSV exceeds the 2.2 MB limit.";
+      return;
+    }
+    showVendorColumns.disabled=true;
+    try{
+      // Header names only, locally. Never generate DOM HTML from CSV text.
+      const fields=readJoinCSV(await file.text(),"Supplier CSV").headers;
+      vendorHeaderList.textContent="Exact supplier headers (copy names as-is) / 원본 열 이름: "+
+        fields.map((name,index)=>String(index+1)+". "+name).join(" | ");
+    }catch(error){
+      vendorHeaderList.textContent="Cannot inspect supplier headers: "+
+        String(error&&error.message?error.message:error);
+    }finally{
+      showVendorColumns.disabled=false;
+    }
+  });
+  supplierInput.addEventListener("change",function(){
+    // Avoid applying a stale, user-confirmed mapping to a different file.
+    vendorSKUInput.value="";
+    vendorCostInput.value="";
+    vendorHeaderList.textContent="";
+    resetResults();
+  });
+
   costOnly.addEventListener("change",function(){
     if(costOnly.checked && proposedInput.files.length){
       costOnly.checked=false;
@@ -199,6 +252,9 @@ APP = r"""
     proposedInput.disabled=false;
     proposedInput.required=true;
     costOnly.checked=false;
+    vendorHeaderList.textContent="";
+    vendorSKUInput.value="";
+    vendorCostInput.value="";
     resetResults();
     status.textContent="File selections and generated links cleared. / 입력 및 결과를 지웠습니다.";
   });
@@ -241,6 +297,25 @@ Test one or two products using Shopify's official process first.</div>
 <input id="current" type="file" accept=".csv,text/csv" required></label>
 <label for="supplier">2. Supplier SKU list / 공급업체 SKU/원가 CSV
 <input id="supplier" type="file" accept=".csv,text/csv" required></label>
+<section class="note" aria-labelledby="supplier-mapping-title">
+<h3 id="supplier-mapping-title">Supplier column names differ? / 공급업체 열 이름이 다르다면</h3>
+<p>Use the supplier file's <strong>exact original header names</strong>. The mapping
+is ONLY a temporary in-memory column-label rename: no guessed SKU, size,
+color, discounts, currency, or product equivalents. Leave both inputs empty
+when the supplier already uses an exact SKU and Cost/Unit cost column.
+Your original file remains unchanged.</p>
+<button id="show-supplier-headers" type="button">Show supplier column names locally / 열 이름 확인</button>
+<p id="supplier-header-list" role="status" aria-live="polite"></p>
+<label for="supplier-sku-column">Original supplier SKU column name / 원본 SKU 열 이름
+<input id="supplier-sku-column" type="text" maxlength="150"
+ autocomplete="off" placeholder="Example: Vendor Ref"></label>
+<label for="supplier-cost-column">Original supplier unit cost column name / 원본 단위원가 열 이름
+<input id="supplier-cost-column" type="text" maxlength="150"
+ autocomplete="off" placeholder="Example: Net Unit Price"></label>
+<p class="muted">If you enter one mapping field, enter BOTH.
+Exact matching only; duplicate/ambiguous SKU keys and colliding column
+names stop safely. These audit outputs must NOT be imported into Shopify.</p>
+</section>
 <label for="proposed">3. Proposed Shopify export / 변경 예정 Shopify CSV (three-file mode only)
 <input id="proposed" type="file" accept=".csv,text/csv" required></label>
 <label for="cost-only">
@@ -260,6 +335,7 @@ for comparison. Ambiguous data stops rather than silently guessing.</p>
 <section id="results" class="panel" hidden>
 <h2>Review and download reports / 보고서 다운로드 (2 files: 5; 3 files: 7)</h2>
 <p id="summary"></p>
+<p id="supplier-mapping-summary" role="status"></p>
 <section id="review-preview" aria-labelledby="review-preview-title" hidden>
 <h3 id="review-preview-title">Change preview and potential import risks / 변경 내역 및 위험 신호</h3>
 <p>The first 12 report rows are shown below (not necessarily all changes).
@@ -325,7 +401,7 @@ def generate() -> str:
         "const Shopify="+shopify+"(CsvCore);",
          "const {joinCSVByKey,readJoinCSV}=CsvLookup;",
          "const {compareCSVExports,readCSVForComparison}=CsvDiff;",
-        "const {stringifyCSV}=CsvCore;",
+        "const {stringifyCSV,parseCSV,detectDelimiter,MAX_INPUT_CHARS}=CsvCore;",
         "const {inspectShopifyProductCSV}=Shopify;",
         logic,
         APP,

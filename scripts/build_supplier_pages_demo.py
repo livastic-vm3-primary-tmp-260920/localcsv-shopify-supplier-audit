@@ -17,7 +17,7 @@ PUBLIC = "https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-sup
 
 OFFLINE_ROBOTS = '<meta name="robots" content="noindex,nofollow">'
 PUBLIC_META = f'''<meta name="robots" content="index,follow">
-<meta name="description" content="Free 2-CSV supplier cost versus current Shopify price audit, or 3-CSV proposed change review. Five or seven private reports, no upload or signup.">
+<meta name="description" content="Free Shopify supplier CSV cost, SKU and change review: 2 or 3 files, exact manual vendor column mapping, 5 or 7 reports. Private local audit.">
 <link rel="canonical" href="{PUBLIC}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Shopify Supplier CSV Change Comparison — Free Browser Demo">
@@ -62,6 +62,12 @@ SAMPLE_JS = r"""(function(){
     // Check ALL inputs, including the proposed one in supplier-only mode.
     if(inputs.some(input=>input.files.length)){
       status.textContent="Clear selected files before trying fictional examples. / 예제 사용 전 실제 파일을 초기화하세요.";
+      return;
+    }
+    const skuMap=document.getElementById("supplier-sku-column");
+    const costMap=document.getElementById("supplier-cost-column");
+    if((skuMap&&skuMap.value.trim())||(costMap&&costMap.value.trim())){
+      status.textContent="Clear custom supplier column mappings before fictional examples. / 가상 예제 실행 전 열 이름 설정을 초기화하세요.";
       return;
     }
     let staged;
@@ -120,7 +126,23 @@ and lower stock for the cap.</p>
 <a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/raw/refs/heads/main/fixtures/shopify-current-products.csv" rel="noopener noreferrer">1. current Shopify export</a>,
 <a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/raw/refs/heads/main/fixtures/supplier-price-update.csv" rel="noopener noreferrer">2. supplier SKU list</a>,
 <a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/raw/refs/heads/main/fixtures/shopify-proposed-products.csv" rel="noopener noreferrer">3. proposed export</a>.
-Download or save each file, select it below, and choose <strong>Audit three CSVs locally</strong>.</p>
+Download or save each file, select it below, and choose <strong>Audit selected CSVs locally</strong>.</p>
+<h3>Raw supplier headers differ? Choose them, do not guess</h3>
+<p>Another <strong>fictional</strong> supplier file has the same three SKUs but uses
+<strong>Vendor Ref</strong> instead of SKU and <strong>Net Unit Price</strong> instead of Cost.
+<a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/raw/refs/heads/main/fixtures/supplier-custom-headers.csv"
+rel="noopener noreferrer">Download the fake supplier with nonstandard headers</a>.
+Choose it as your second file, click <strong>Show supplier column names locally</strong>,
+and explicitly type <strong>Vendor Ref</strong> and <strong>Net Unit Price</strong> in the two mapping fields.
+You can use this with two or three files. No automatic SKU synonym/size/colour
+matching or currency conversion is attempted. The original supplier CSV stays unchanged.
+The resulting supplier-joined and cost files are for review only, never Shopify imports.</p>
+<p lang="ko"><strong>공급업체 열 이름 직접 지정:</strong> 다른 공급업체의 CSV가
+SKU 대신 Vendor Ref, 원가 대신 Net Unit Price라는 열 이름을 쓸 수 있습니다.
+위 가상 CSV를 내려받아 두 번째 파일로 지정하고
+<strong>열 이름 확인</strong> 버튼을 누르세요. 표시된 열 이름 두 개를 그대로 입력하면
+브라우저 안에서만 검토용으로 매핑합니다. 상품 옵션·크기·통화·SKU를 자동 추측하지
+않으며 원본 CSV를 변경하지 않습니다.</p>
 <ul>
 <li><strong>TEE-BLK-M:</strong> Price changes from 29.00 to 31.00; the variant remains.</li>
 <li><strong>CAP-WOOL:</strong> Inventory quantity changes from 7 to 6; the variant remains.</li>

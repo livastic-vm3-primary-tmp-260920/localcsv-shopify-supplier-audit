@@ -3,7 +3,7 @@
 <head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="index,follow">
-<meta name="description" content="Free 2-CSV supplier cost versus current Shopify price audit, or 3-CSV proposed change review. Five or seven private reports, no upload or signup.">
+<meta name="description" content="Free Shopify supplier CSV cost, SKU and change review: 2 or 3 files, exact manual vendor column mapping, 5 or 7 reports. Private local audit.">
 <link rel="canonical" href="https://livastic-vm3-primary-tmp-260920.github.io/localcsv-shopify-supplier-audit/supplier-audit/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Shopify Supplier CSV Change Comparison — Free Browser Demo">
@@ -76,7 +76,23 @@ and lower stock for the cap.</p>
 <a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/raw/refs/heads/main/fixtures/shopify-current-products.csv" rel="noopener noreferrer">1. current Shopify export</a>,
 <a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/raw/refs/heads/main/fixtures/supplier-price-update.csv" rel="noopener noreferrer">2. supplier SKU list</a>,
 <a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/raw/refs/heads/main/fixtures/shopify-proposed-products.csv" rel="noopener noreferrer">3. proposed export</a>.
-Download or save each file, select it below, and choose <strong>Audit three CSVs locally</strong>.</p>
+Download or save each file, select it below, and choose <strong>Audit selected CSVs locally</strong>.</p>
+<h3>Raw supplier headers differ? Choose them, do not guess</h3>
+<p>Another <strong>fictional</strong> supplier file has the same three SKUs but uses
+<strong>Vendor Ref</strong> instead of SKU and <strong>Net Unit Price</strong> instead of Cost.
+<a href="https://github.com/livastic-vm3-primary-tmp-260920/localcsv-shopify-supplier-audit/raw/refs/heads/main/fixtures/supplier-custom-headers.csv"
+rel="noopener noreferrer">Download the fake supplier with nonstandard headers</a>.
+Choose it as your second file, click <strong>Show supplier column names locally</strong>,
+and explicitly type <strong>Vendor Ref</strong> and <strong>Net Unit Price</strong> in the two mapping fields.
+You can use this with two or three files. No automatic SKU synonym/size/colour
+matching or currency conversion is attempted. The original supplier CSV stays unchanged.
+The resulting supplier-joined and cost files are for review only, never Shopify imports.</p>
+<p lang="ko"><strong>공급업체 열 이름 직접 지정:</strong> 다른 공급업체의 CSV가
+SKU 대신 Vendor Ref, 원가 대신 Net Unit Price라는 열 이름을 쓸 수 있습니다.
+위 가상 CSV를 내려받아 두 번째 파일로 지정하고
+<strong>열 이름 확인</strong> 버튼을 누르세요. 표시된 열 이름 두 개를 그대로 입력하면
+브라우저 안에서만 검토용으로 매핑합니다. 상품 옵션·크기·통화·SKU를 자동 추측하지
+않으며 원본 CSV를 변경하지 않습니다.</p>
 <ul>
 <li><strong>TEE-BLK-M:</strong> Price changes from 29.00 to 31.00; the variant remains.</li>
 <li><strong>CAP-WOOL:</strong> Inventory quantity changes from 7 to 6; the variant remains.</li>
@@ -120,6 +136,25 @@ reference has no advertising at all.</p>
 <input id="current" type="file" accept=".csv,text/csv" required></label>
 <label for="supplier">2. Supplier SKU list / 공급업체 SKU/원가 CSV
 <input id="supplier" type="file" accept=".csv,text/csv" required></label>
+<section class="note" aria-labelledby="supplier-mapping-title">
+<h3 id="supplier-mapping-title">Supplier column names differ? / 공급업체 열 이름이 다르다면</h3>
+<p>Use the supplier file's <strong>exact original header names</strong>. The mapping
+is ONLY a temporary in-memory column-label rename: no guessed SKU, size,
+color, discounts, currency, or product equivalents. Leave both inputs empty
+when the supplier already uses an exact SKU and Cost/Unit cost column.
+Your original file remains unchanged.</p>
+<button id="show-supplier-headers" type="button">Show supplier column names locally / 열 이름 확인</button>
+<p id="supplier-header-list" role="status" aria-live="polite"></p>
+<label for="supplier-sku-column">Original supplier SKU column name / 원본 SKU 열 이름
+<input id="supplier-sku-column" type="text" maxlength="150"
+ autocomplete="off" placeholder="Example: Vendor Ref"></label>
+<label for="supplier-cost-column">Original supplier unit cost column name / 원본 단위원가 열 이름
+<input id="supplier-cost-column" type="text" maxlength="150"
+ autocomplete="off" placeholder="Example: Net Unit Price"></label>
+<p class="muted">If you enter one mapping field, enter BOTH.
+Exact matching only; duplicate/ambiguous SKU keys and colliding column
+names stop safely. These audit outputs must NOT be imported into Shopify.</p>
+</section>
 <label for="proposed">3. Proposed Shopify export / 변경 예정 Shopify CSV (three-file mode only)
 <input id="proposed" type="file" accept=".csv,text/csv" required></label>
 <label for="cost-only">
@@ -139,6 +174,7 @@ for comparison. Ambiguous data stops rather than silently guessing.</p>
 <section id="results" class="panel" hidden>
 <h2>Review and download reports / 보고서 다운로드 (2 files: 5; 3 files: 7)</h2>
 <p id="summary"></p>
+<p id="supplier-mapping-summary" role="status"></p>
 <section id="review-preview" aria-labelledby="review-preview-title" hidden>
 <h3 id="review-preview-title">Change preview and potential import risks / 변경 내역 및 위험 신호</h3>
 <p>The first 12 report rows are shown below (not necessarily all changes).
@@ -922,9 +958,67 @@ return {inspectShopifyProductCSV};
 })(CsvCore);
 const {joinCSVByKey,readJoinCSV}=CsvLookup;
 const {compareCSVExports,readCSVForComparison}=CsvDiff;
-const {stringifyCSV}=CsvCore;
+const {stringifyCSV,parseCSV,detectDelimiter,MAX_INPUT_CHARS}=CsvCore;
 const {inspectShopifyProductCSV}=Shopify;
-function makeReports({current, supplier, proposed}) {
+function normalizeSupplierColumns(supplierText,{
+  supplierSkuColumn,supplierCostColumn
+}={}){
+  const selectedSKU=(typeof supplierSkuColumn==="string"?supplierSkuColumn.trim():"");
+  const selectedCost=(typeof supplierCostColumn==="string"?supplierCostColumn.trim():"");
+  if(!selectedSKU&&!selectedCost){
+    if(supplierSkuColumn!==undefined||supplierCostColumn!==undefined){
+      throw new Error("Supplier mapping requires BOTH source SKU and Cost headers.");
+    }
+    return {csv:supplierText,mapping:null};
+  }
+  if(!selectedSKU||!selectedCost){
+    throw new Error("Supplier mapping requires BOTH source SKU and Cost headers.");
+  }
+  if(selectedSKU===selectedCost){
+    throw new Error("Supplier SKU and unit cost must be DIFFERENT source columns.");
+  }
+  const dataset=readJoinCSV(supplierText,"Original supplier CSV");
+  if(!dataset.headers.includes(selectedSKU)){
+    throw new Error("Supplier CSV missing explicitly chosen SKU header: "+selectedSKU);
+  }
+  if(!dataset.headers.includes(selectedCost)){
+    throw new Error("Supplier CSV missing explicitly chosen Cost header: "+selectedCost);
+  }
+  const newHeaders=dataset.headers.map(field=>
+    field===selectedSKU?"SKU":field===selectedCost?"Cost":field
+  );
+  const caseInsensitive=newHeaders.map(field=>field.toLocaleLowerCase("en"));
+  if(new Set(caseInsensitive).size!==caseInsensitive.length){
+    throw new Error("Chosen header mapping collides with an EXISTING SKU/Cost column. Fix the ambiguous vendor CSV before review.");
+  }
+  const table=parseCSV(supplierText,detectDelimiter(supplierText));
+  if(!table.length||table[0].length!==newHeaders.length){
+    throw new Error("Supplier CSV structure changed during local mapping.");
+  }
+  // Only replace the header row, never variant values, SKU identifiers or costs.
+  const transformed=stringifyCSV([newHeaders,...table.slice(1)],",",false);
+  if(transformed.length>MAX_INPUT_CHARS){
+    throw new Error("Mapped supplier CSV exceeds the two-million-character limit.");
+  }
+  return {
+    csv:transformed,
+    mapping:{
+      userSelected:true,
+      sourceSkuColumn:selectedSKU,
+      sourceCostColumn:selectedCost,
+      normalizedSkuColumn:"SKU",
+      normalizedCostColumn:"Cost",
+      originalOtherColumnsPreserved:true,
+      originalSupplierFileModified:false,
+      originalDataRows:dataset.records.length,
+      limitation:"Exact header renaming ONLY: does not guess SKU, size, colour, currency, discounts, products, or authorize Shopify imports."
+    }
+  };
+}
+
+function makeReports({current, supplier, proposed,
+  supplierSkuColumn,supplierCostColumn
+}) {
   // OMITTING proposed is an explicit two-file supplier-cost review.
   // Never pretend that any product changes have been checked.
   const proposedSupplied = typeof proposed === "string";
@@ -933,10 +1027,14 @@ function makeReports({current, supplier, proposed}) {
   }
   // All input validation takes place BEFORE touching the output filesystem.
   // Ambiguous supplier duplicates and CSV comparison keys cause an error.
+  const mapped=normalizeSupplierColumns(supplier,{
+    supplierSkuColumn,supplierCostColumn
+  });
+  const vendorCSV=mapped.csv;
   const before = inspectShopifyProductCSV(current, {mode: "update"});
   const after = proposedSupplied ?
     inspectShopifyProductCSV(proposed, {mode: "update"}) : null;
-  const joined = joinCSVByKey(current, supplier, {
+  const joined = joinCSVByKey(current, vendorCSV, {
     primaryKey: "SKU", lookupKey: "SKU", mode: "left", caseSensitive: true,
   });
   const diff = proposedSupplied ?
@@ -1012,14 +1110,16 @@ function makeReports({current, supplier, proposed}) {
   // conversion are unknown. NEVER assume vendor CSV uses store currency.
   // Read valid input tables only; the join and diff above already validate
   // unique supplier SKU and unique proposed/current Shopify SKU keys.
-  const vendorData=readJoinCSV(supplier,"Supplier cost CSV");
+  const vendorData=readJoinCSV(vendorCSV,"Supplier cost CSV");
   const costNames=vendorData.headers.filter(name =>
     ["cost","cost per item","unit cost","wholesale cost"].includes(name.toLowerCase()));
   const priceNames=newData.headers.filter(name =>
     ["Price","Variant Price"].includes(name));
   const oldPriceNames=oldData.headers.filter(name =>
     ["Price","Variant Price"].includes(name));
-  const costField=costNames.length===1?costNames[0]:null;
+  // Explicit reviewer choice overrides ambiguous vendor cost aliases.
+  const costField=mapped.mapping?"Cost":
+    costNames.length===1?costNames[0]:null;
   const priceField=priceNames.length===1?priceNames[0]:null;
   const priorPriceField=oldPriceNames.length===1?oldPriceNames[0]:null;
   const vendorSkuIndex=vendorData.headers.indexOf("SKU");
@@ -1113,6 +1213,7 @@ function makeReports({current, supplier, proposed}) {
     proposedFileSupplied:proposedSupplied,
     productChangeComparisonPerformed:proposedSupplied,
     supplierJoin: joined.metrics,
+    explicitlyConfirmedSupplierColumnMapping:mapped.mapping,
     changedProductRecords: proposedSupplied?diff.metrics:null,
     possibleImportRisks: proposedSupplied?importRisk:null,
     supplierCostMarginReview: margin,
@@ -1125,6 +1226,9 @@ function makeReports({current, supplier, proposed}) {
       "Shopify product updates are based on URL handle and dependent variant columns, not solely SKU.",
       "The supplier-joined analysis has extra Cost/Supplier fields; NEVER import it directly into Shopify.",
       "Keep the original export; review duplicate/blank SKU exceptions and changed variants.",
+      ...(mapped.mapping?[
+        "Supplier column mapping is explicitly chosen by the reviewer. It only renames headers in TEMPORARY in-memory CSV; no automatic match, size conversion, product update or source file modification."
+      ]:[]),
       "Supplier prices are confidential: keep generated reports local.",
       "Margin checks are SIMPLE price-minus-supplier-cost arithmetic, never real profit or an instruction to price products.",
       "Verify same-currency input, tax, discounts, refunds, payment processing, shipping and advertising costs separately.",
@@ -1177,6 +1281,12 @@ function makeReports({current, supplier, proposed}) {
   const clear=document.getElementById("clear");
   const costOnly=document.getElementById("cost-only");
   const proposedInput=document.getElementById("proposed");
+  const supplierInput=document.getElementById("supplier");
+  const showVendorColumns=document.getElementById("show-supplier-headers");
+  const vendorHeaderList=document.getElementById("supplier-header-list");
+  const vendorSKUInput=document.getElementById("supplier-sku-column");
+  const vendorCostInput=document.getElementById("supplier-cost-column");
+  const vendorMappingSummary=document.getElementById("supplier-mapping-summary");
   let urls=[];
 
   function resetResults(){
@@ -1187,6 +1297,7 @@ function makeReports({current, supplier, proposed}) {
     riskList.replaceChildren();
     marginRows.replaceChildren();
     marginOverview.textContent="";
+    vendorMappingSummary.textContent="";
     marginPanel.hidden=true;
     riskSummary.textContent="";
     preview.hidden=true;
@@ -1214,15 +1325,29 @@ function makeReports({current, supplier, proposed}) {
       status.textContent="Each CSV must be under 2.2 MB. / 각 파일은 2.2 MB 미만이어야 합니다.";
       return;
     }
+    const sourceSKU=vendorSKUInput.value.trim();
+    const sourceCost=vendorCostInput.value.trim();
+    if(Boolean(sourceSKU)!==Boolean(sourceCost)){
+      status.textContent="Enter BOTH exact source SKU and cost column headers. / 공급업체 SKU·원가 열 이름을 모두 입력하세요.";
+      return;
+    }
     run.disabled=true;
     status.textContent="Checking locally. Nothing is uploaded. / 브라우저 내부에서 검사 중입니다.";
     try{
       const texts=await Promise.all(files.map(file=>file.text()));
       const result=makeReports({
         current:texts[0], supplier:texts[1],
-        proposed:twoFile?undefined:texts[2]
+        proposed:twoFile?undefined:texts[2],
+        supplierSkuColumn:sourceSKU||undefined,
+        supplierCostColumn:sourceCost||undefined
       });
       const m=result.summary;
+      const mapping=m.explicitlyConfirmedSupplierColumnMapping;
+      vendorMappingSummary.textContent=mapping?
+        "Exact reviewer-confirmed mapping ONLY: supplier '"+mapping.sourceSkuColumn+
+        "' → SKU, '"+mapping.sourceCostColumn+
+        "' → Cost. No automatic SKU, size, currency, colour, or product matching.":
+        "Using supplier's existing canonical SKU and cost headers. No mappings guessed.";
       summary.textContent=
         "Supplier matches: "+m.supplierJoin.matched+
         " | Unmatched: "+m.supplierJoin.unmatched+
@@ -1310,6 +1435,37 @@ function makeReports({current, supplier, proposed}) {
     }
   });
 
+  showVendorColumns.addEventListener("click",async function(){
+    const file=supplierInput.files[0];
+    if(!file){
+      vendorHeaderList.textContent="Choose a supplier CSV first. / 공급업체 CSV를 먼저 선택하세요.";
+      return;
+    }
+    if(file.size>2200000){
+      vendorHeaderList.textContent="Supplier CSV exceeds the 2.2 MB limit.";
+      return;
+    }
+    showVendorColumns.disabled=true;
+    try{
+      // Header names only, locally. Never generate DOM HTML from CSV text.
+      const fields=readJoinCSV(await file.text(),"Supplier CSV").headers;
+      vendorHeaderList.textContent="Exact supplier headers (copy names as-is) / 원본 열 이름: "+
+        fields.map((name,index)=>String(index+1)+". "+name).join(" | ");
+    }catch(error){
+      vendorHeaderList.textContent="Cannot inspect supplier headers: "+
+        String(error&&error.message?error.message:error);
+    }finally{
+      showVendorColumns.disabled=false;
+    }
+  });
+  supplierInput.addEventListener("change",function(){
+    // Avoid applying a stale, user-confirmed mapping to a different file.
+    vendorSKUInput.value="";
+    vendorCostInput.value="";
+    vendorHeaderList.textContent="";
+    resetResults();
+  });
+
   costOnly.addEventListener("change",function(){
     if(costOnly.checked && proposedInput.files.length){
       costOnly.checked=false;
@@ -1329,6 +1485,9 @@ function makeReports({current, supplier, proposed}) {
     proposedInput.disabled=false;
     proposedInput.required=true;
     costOnly.checked=false;
+    vendorHeaderList.textContent="";
+    vendorSKUInput.value="";
+    vendorCostInput.value="";
     resetResults();
     status.textContent="File selections and generated links cleared. / 입력 및 결과를 지웠습니다.";
   });
@@ -1353,6 +1512,12 @@ function makeReports({current, supplier, proposed}) {
     // Check ALL inputs, including the proposed one in supplier-only mode.
     if(inputs.some(input=>input.files.length)){
       status.textContent="Clear selected files before trying fictional examples. / 예제 사용 전 실제 파일을 초기화하세요.";
+      return;
+    }
+    const skuMap=document.getElementById("supplier-sku-column");
+    const costMap=document.getElementById("supplier-cost-column");
+    if((skuMap&&skuMap.value.trim())||(costMap&&costMap.value.trim())){
+      status.textContent="Clear custom supplier column mappings before fictional examples. / 가상 예제 실행 전 열 이름 설정을 초기화하세요.";
       return;
     }
     let staged;
